@@ -10,7 +10,7 @@ import FoundationNetworking
 /// frames, and ``close()`` to permanently terminate.
 public actor WspulseClient {
     /// Yields once and finishes when the client is permanently disconnected.
-    public let done: AsyncStream<Void>
+    nonisolated public let done: AsyncStream<Void>
 
     private let url: URL
     private let options: WspulseClientOptions
