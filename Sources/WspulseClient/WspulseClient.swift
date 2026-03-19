@@ -257,28 +257,34 @@ public actor WspulseClient {
 
                 if Task.isCancelled { return }
 
-                await self.connection.close()
-                await self.connection.dial(url: self.url, headers: self.options.dialHeaders)
+                let succeeded = await self.attemptReconnect()
 
                 if Task.isCancelled { return }
 
-                do {
-                    try await self.connection.sendPing()
-
-                    if Task.isCancelled { return }
-
-                    // Success — restart loops
+                if succeeded {
                     await self.reconnected()
                     return
-                } catch {
-                    if Task.isCancelled { return }
-                    attempt += 1
-                    if reconnectOptions.maxRetries > 0 && attempt >= reconnectOptions.maxRetries {
-                        await self.reconnectExhausted()
-                        return
-                    }
+                }
+
+                attempt += 1
+                if reconnectOptions.maxRetries > 0 && attempt >= reconnectOptions.maxRetries {
+                    await self.reconnectExhausted()
+                    return
                 }
             }
+        }
+    }
+
+    /// Try to establish a new connection and verify it with a ping.
+    /// Returns `true` on success, `false` on failure.
+    private func attemptReconnect() async -> Bool {
+        await connection.close()
+        await connection.dial(url: url, headers: options.dialHeaders)
+        do {
+            try await connection.sendPing()
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -319,10 +325,23 @@ public actor WspulseClient {
     }
 
     private func drainBuffer() async {
+        let writeWait = options.writeWait
         while !sendBuffer.isEmpty {
             let data = sendBuffer.removeFirst()
             do {
-                try await connection.send(data, frameType: options.codec.frameType)
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        try await self.connection.send(data, frameType: self.options.codec.frameType)
+                    }
+                    group.addTask {
+                        try await Task.sleep(for: writeWait)
+                        throw WspulseError.connectionLost
+                    }
+                    if let result = try await group.next() {
+                        _ = result
+                    }
+                    group.cancelAll()
+                }
             } catch {
                 if closed { return }
                 // Re-insert at front if send failed (will retry after reconnect)

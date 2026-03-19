@@ -18,13 +18,14 @@ final class ClientIntegrationTests: XCTestCase {
     nonisolated(unsafe) static var serverProcess: Process?
     nonisolated(unsafe) static var serverUrl: String = ""
     nonisolated(unsafe) static var controlUrl: String = ""
+    nonisolated(unsafe) static var serverStartError: String?
 
     override class func setUp() {
         super.setUp()
         do {
             try startTestServer()
         } catch {
-            print("⚠️  testserver failed to start: \(error)")
+            serverStartError = "testserver failed to start: \(error)"
         }
     }
 
@@ -35,9 +36,17 @@ final class ClientIntegrationTests: XCTestCase {
         super.tearDown()
     }
 
-    // ── Per-test teardown ────────────────────────────────────────────────────
+    // ── Per-test setup / teardown ─────────────────────────────────────────────
 
     var testClient: WspulseClient?
+
+    override func setUp() async throws {
+        try await super.setUp()
+        if let err = Self.serverStartError {
+            XCTFail(err)
+            throw XCTSkip(err)
+        }
+    }
 
     override func tearDown() async throws {
         if let client = testClient {
@@ -64,7 +73,9 @@ final class ClientIntegrationTests: XCTestCase {
             if condition() { return }
             try await Task.sleep(for: .milliseconds(50))
         }
-        XCTFail("waitUntil timed out after \(timeout) s")
+        let msg = "waitUntil timed out after \(timeout) s"
+        XCTFail(msg)
+        throw NSError(domain: "ClientIntegrationTests", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
     }
 
     @discardableResult
