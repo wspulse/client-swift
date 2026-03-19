@@ -19,12 +19,18 @@ public actor WspulseClient {
 
     private var closed = false
     private var connected = false
+    /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
+    /// loop is active (e.g. when both the read loop and ping loop detect the
+    /// same transport drop).
+    private var reconnecting = false
     private var sendBuffer: [Data] = []
     private let sendBufferMax = 256
 
     // Signal channel for the write loop: each element means "there's data to send".
-    private let writeSignal: AsyncStream<Void>
-    private let writeSignalContinuation: AsyncStream<Void>.Continuation
+    // Declared `var` so startWriteLoop() can replace the stream on each connection
+    // cycle — AsyncStream supports only one active iterator.
+    private var writeSignal: AsyncStream<Void>
+    private var writeSignalContinuation: AsyncStream<Void>.Continuation
 
     // Internal tasks
     private var readTask: Task<Void, Never>?
@@ -91,6 +97,7 @@ public actor WspulseClient {
         guard !closed else { return }
         closed = true
         connected = false
+        reconnecting = false
 
         // Cancel all internal tasks
         readTask?.cancel()
@@ -138,9 +145,20 @@ public actor WspulseClient {
     }
 
     private func startWriteLoop() {
+        // Create a fresh write-signal stream for this connection cycle so the new
+        // write task gets its own iterator. AsyncStream supports only one active
+        // iterator: if we reused the same stream, the old (cancelled) task's iterator
+        // and the new task's iterator would compete and yields would be lost.
+        var newCont: AsyncStream<Void>.Continuation!
+        let newStream = AsyncStream<Void> { newCont = $0 }
+        writeSignal = newStream
+        writeSignalContinuation = newCont
+
         writeTask = Task { [weak self] in
             guard let self else { return }
-            for await _ in self.writeSignal {
+            // Iterate the captured stream directly to avoid an actor hop inside the
+            // loop (var properties require await to access from outside the actor).
+            for await _ in newStream {
                 if Task.isCancelled { return }
                 await self.drainBuffer()
             }
@@ -188,7 +206,7 @@ public actor WspulseClient {
     // MARK: - Reconnect
 
     private func handleTransportDrop(error: Error) {
-        guard !closed else { return }
+        guard !closed, !reconnecting else { return }
         connected = false
 
         // Stop current loops
@@ -199,14 +217,17 @@ public actor WspulseClient {
         options.onTransportDrop?(error)
 
         guard options.autoReconnect != nil else {
-            // No auto-reconnect: permanent disconnect
+            // No auto-reconnect: permanent disconnect.
+            // Close transport to release URLSession resources.
             closed = true
+            Task { await connection.close() }
             options.onDisconnect?(WspulseError.connectionLost)
             doneContinuation.yield()
             doneContinuation.finish()
             return
         }
 
+        reconnecting = true
         startReconnectLoop()
     }
 
@@ -234,18 +255,23 @@ public actor WspulseClient {
 
                 await self.notifyReconnect(attempt: attempt)
 
+                if Task.isCancelled { return }
+
                 await self.connection.close()
                 await self.connection.dial(url: self.url, headers: self.options.dialHeaders)
 
-                // Test the connection by trying to receive or send
+                if Task.isCancelled { return }
+
                 do {
-                    // Try a ping to verify connection is alive
                     try await self.connection.sendPing()
+
+                    if Task.isCancelled { return }
 
                     // Success — restart loops
                     await self.reconnected()
                     return
                 } catch {
+                    if Task.isCancelled { return }
                     attempt += 1
                     if reconnectOptions.maxRetries > 0 && attempt >= reconnectOptions.maxRetries {
                         await self.reconnectExhausted()
@@ -258,6 +284,7 @@ public actor WspulseClient {
 
     private func reconnected() {
         connected = true
+        reconnecting = false
         startReadLoop()
         startWriteLoop()
         startPingLoop()
@@ -273,6 +300,8 @@ public actor WspulseClient {
         guard !closed else { return }
         closed = true
         connected = false
+        reconnecting = false
+        Task { await connection.close() }
         options.onDisconnect?(WspulseError.retriesExhausted)
         doneContinuation.yield()
         doneContinuation.finish()

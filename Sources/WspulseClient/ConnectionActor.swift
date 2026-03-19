@@ -3,10 +3,94 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// URLSession delegate that tracks WebSocket lifecycle events.
+///
+/// Signals handshake completion (open/fail) via `configure(onOpen:onFail:)`,
+/// and post-handshake connection drops via `setOnClose(_:)`. Kept alive by
+/// `ConnectionActor` to prevent delegate callbacks from firing after the
+/// session is released.
+private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
+    URLSessionTaskDelegate, @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var handshakeSettled = false
+    private var onOpen: (() -> Void)?
+    private var onFail: ((Error) -> Void)?
+    private var onClose: (() -> Void)?
+    private var closeFired = false
+
+    func configure(onOpen: @escaping () -> Void, onFail: @escaping (Error) -> Void) {
+        lock.withLock {
+            self.onOpen = onOpen
+            self.onFail = onFail
+        }
+    }
+
+    /// Register a handler that fires when the connection drops after a
+    /// successful handshake. If the close event already occurred before
+    /// the handler is set, the handler is called immediately.
+    func setOnClose(_ handler: @escaping () -> Void) {
+        lock.withLock {
+            if closeFired {
+                handler()
+            } else {
+                self.onClose = handler
+            }
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        settleHandshake { self.onOpen?() }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        if let error {
+            settleHandshake { self.onFail?(error) }
+        }
+        // Task completed — connection dropped.
+        fireOnClose()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
+        fireOnClose()
+    }
+
+    private func settleHandshake(block: () -> Void) {
+        lock.withLock {
+            guard !handshakeSettled else { return }
+            handshakeSettled = true
+            block()
+        }
+    }
+
+    private func fireOnClose() {
+        lock.withLock {
+            guard !closeFired else { return }
+            closeFired = true
+            onClose?()
+            onClose = nil
+        }
+    }
+}
+
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
 actor ConnectionActor {
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
+    private var connectionDelegate: ConnectionDelegate?
     private let maxMessageSize: Int
 
     init(maxMessageSize: Int) {
@@ -14,18 +98,49 @@ actor ConnectionActor {
     }
 
     /// Open a WebSocket connection to the given URL with optional headers.
-    func dial(url: URL, headers: [String: String]) {
+    ///
+    /// Returns only after the WebSocket upgrade handshake either succeeds or
+    /// fails, guaranteeing that the connection is registered server-side before
+    /// returning. On failure the task is in an error state; the caller's read
+    /// loop will detect this when it calls `receive()`.
+    ///
+    /// After the handshake, a close-detection handler is installed so that
+    /// server-initiated close frames cancel the underlying task, causing
+    /// `receive()` to throw and trigger the reconnect/disconnect flow.
+    func dial(url: URL, headers: [String: String]) async {
         let configuration = URLSessionConfiguration.default
         var request = URLRequest(url: url)
         for (key, value) in headers {
             request.addValue(value, forHTTPHeaderField: key)
         }
-        let session = URLSession(configuration: configuration)
-        let task = session.webSocketTask(with: request)
-        task.maximumMessageSize = maxMessageSize
+
+        let delegate = ConnectionDelegate()
+        connectionDelegate = delegate
+
+        let session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+        let wsTask = session.webSocketTask(with: request)
+        wsTask.maximumMessageSize = maxMessageSize
         self.session = session
-        self.task = task
-        task.resume()
+        self.task = wsTask
+
+        let capturedTask = wsTask
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                delegate.configure(
+                    onOpen: { continuation.resume() },
+                    onFail: { _ in continuation.resume() }
+                )
+                capturedTask.resume()
+            }
+        } onCancel: {
+            capturedTask.cancel(with: .goingAway, reason: nil)
+        }
+
+        // After handshake, install close detection. When the server closes
+        // the connection, cancel the task so receive() throws immediately.
+        delegate.setOnClose {
+            capturedTask.cancel(with: .goingAway, reason: nil)
+        }
     }
 
     /// Send data over the WebSocket. Uses text or binary message based on frame type.
@@ -66,18 +181,27 @@ actor ConnectionActor {
     }
 
     /// Send a WebSocket ping and wait for the pong.
+    ///
+    /// Supports cooperative cancellation: when the calling Task is cancelled,
+    /// the underlying `URLSessionWebSocketTask` is cancelled so the pong
+    /// callback fires immediately with an error, unblocking the continuation.
     func sendPing() async throws {
         guard let task else {
             throw WspulseError.connectionClosed
         }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            task.sendPing { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+        let capturedTask = task
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                capturedTask.sendPing { error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume()
+                    }
                 }
             }
+        } onCancel: {
+            capturedTask.cancel(with: .goingAway, reason: nil)
         }
     }
 
@@ -87,6 +211,7 @@ actor ConnectionActor {
         task = nil
         session?.invalidateAndCancel()
         session = nil
+        connectionDelegate = nil
     }
 
     /// Close with a specific close code (e.g. for protocol errors).
@@ -95,5 +220,6 @@ actor ConnectionActor {
         task = nil
         session?.invalidateAndCancel()
         session = nil
+        connectionDelegate = nil
     }
 }
