@@ -7,7 +7,7 @@ Integration tests run against a live `wspulse/server` via the shared
 [testserver](https://github.com/wspulse/testserver). The Go test server is spawned by
 `Process` in `setUp` and killed in `tearDown`.
 
-**Run:** `swift test --filter ClientTests` (or `make test-integration`)
+**Run:** `swift test --filter ClientIntegrationTests` (or `make test-integration`)
 
 ## Scenario Matrix
 

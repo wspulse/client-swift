@@ -36,7 +36,7 @@ final class Ref<T>: @unchecked Sendable {
     init(_ val: T? = nil) { value = val }
 }
 
-// MARK: - ClientTests + server lifecycle
+// MARK: - ClientIntegrationTests + server lifecycle
 
 private enum TestServerError: Error {
     case notFound
@@ -45,7 +45,7 @@ private enum TestServerError: Error {
     case timeout
 }
 
-extension ClientTests {
+extension ClientIntegrationTests {
     // ── Build step ───────────────────────────────────────────────────────────
 
     static func buildTestserverBinary(in dir: URL, named name: String) throws {

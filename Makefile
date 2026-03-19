@@ -9,10 +9,10 @@ build: ## Build the package
 	@swift build
 
 test: ## Run unit tests
-	@swift test --filter WspulseClientTests --skip ClientTests
+	@swift test --filter WspulseClientTests --skip ClientIntegrationTests
 
 test-integration: ## Run integration tests (requires Go testserver)
-	@swift test --filter ClientTests
+	@swift test --filter ClientIntegrationTests
 
 lint: ## Run SwiftLint checks
 	@swiftlint lint --strict

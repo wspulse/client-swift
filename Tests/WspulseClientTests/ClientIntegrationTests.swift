@@ -2,7 +2,7 @@ import Foundation
 import WspulseClient
 import XCTest
 
-// MARK: - ClientTests
+// MARK: - ClientIntegrationTests
 
 /// Integration tests against the shared Go testserver.
 ///
@@ -10,9 +10,9 @@ import XCTest
 /// `READY:<ws_port>:<control_port>` on stderr when ready. All 14 scenarios
 /// defined in `doc/integration-tests.md` are covered here.
 ///
-/// Run:  `swift test --filter ClientTests`
+/// Run:  `swift test --filter ClientIntegrationTests`
 /// Or:   `make test-integration`
-final class ClientTests: XCTestCase {
+final class ClientIntegrationTests: XCTestCase {
     // ── Class-level server ───────────────────────────────────────────────────
 
     nonisolated(unsafe) static var serverProcess: Process?
@@ -90,7 +90,7 @@ final class ClientTests: XCTestCase {
 
 // MARK: - Test cases
 
-extension ClientTests {
+extension ClientIntegrationTests {
     // ── Scenario 1: connect → send → echo → close clean ─────────────────────
 
     func testConnectSendEchoCloseClean() async throws {
