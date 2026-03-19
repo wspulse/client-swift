@@ -457,6 +457,22 @@ final class ClientTests: XCTestCase {
         try await waitUntil(timeout: 15) { state.receivedCount >= total }
         XCTAssertEqual(state.receivedCount, total)
         XCTAssertTrue(state.received.allSatisfy { $0.event == "concurrent" })
+
+        // Verify per-sender ordering: messages from each sender must arrive
+        // with monotonically increasing m values (contract threading note).
+        var lastM = [Int: Int]()
+        for frame in state.received {
+            guard
+                let obj = frame.payload?.objectValue,
+                let sVal = obj["s"]?.numberValue,
+                let mVal = obj["m"]?.numberValue
+            else { continue }
+            let s = Int(sVal), m = Int(mVal)
+            if let prev = lastM[s] {
+                XCTAssertGreaterThan(m, prev, "sender \(s): m=\(m) arrived after m=\(prev)")
+            }
+            lastM[s] = m
+        }
     }
 
     // ── Scenario 9: close() racing with transport drop fires onDisconnect once
