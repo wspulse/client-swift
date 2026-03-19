@@ -22,6 +22,7 @@ Thumbs.db
 .idea/*
 !.idea/codeStyles
 !.idea/runConfigurations
+.vscode/settings.json
 
 # Local docs (never commit)
 doc/local/

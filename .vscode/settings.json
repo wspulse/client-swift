@@ -1,7 +1,0 @@
-{
-  "[markdown]": {
-    "editor.formatOnSave": false,
-    "editor.formatOnPaste": false
-  },
-  "github-actions.workflows.pinned.enabled": false
-}
