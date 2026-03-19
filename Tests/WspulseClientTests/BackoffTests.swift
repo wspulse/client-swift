@@ -75,7 +75,7 @@ final class BackoffTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func durationToSeconds(_ d: Duration) -> Double {
-        Double(d.components.seconds) + Double(d.components.attoseconds) * 1e-18
+    private func durationToSeconds(_ dur: Duration) -> Double {
+        Double(dur.components.seconds) + Double(dur.components.attoseconds) * 1e-18
     }
 }

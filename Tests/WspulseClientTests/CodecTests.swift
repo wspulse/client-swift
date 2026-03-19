@@ -33,7 +33,7 @@ final class CodecTests: XCTestCase {
     }
 
     func testDecodeInvalidDataThrows() {
-        let badData = "not-json".data(using: .utf8)!
+        let badData = Data("not-json".utf8)
         XCTAssertThrowsError(try codec.decode(badData))
     }
 

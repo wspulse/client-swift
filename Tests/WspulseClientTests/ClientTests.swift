@@ -2,47 +2,6 @@ import Foundation
 import WspulseClient
 import XCTest
 
-// MARK: - Thread-safe test helpers
-
-/// Thread-safe state collector for integration test callbacks.
-private final class TestState: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _received: [Frame] = []
-    private var _disconnects: [Error?] = []
-    private var _transportDrops: [Error] = []
-    private var _reconnects: [Int] = []
-
-    func addReceived(_ frame: Frame)    { lock.withLock { _received.append(frame) } }
-    func addDisconnect(_ err: Error?)   { lock.withLock { _disconnects.append(err) } }
-    func addTransportDrop(_ err: Error) { lock.withLock { _transportDrops.append(err) } }
-    func addReconnect(_ attempt: Int)   { lock.withLock { _reconnects.append(attempt) } }
-
-    var received: [Frame]       { lock.withLock { _received } }
-    var receivedCount: Int      { lock.withLock { _received.count } }
-    var disconnectCount: Int    { lock.withLock { _disconnects.count } }
-    var reconnectCount: Int     { lock.withLock { _reconnects.count } }
-    var disconnectCalled: Bool  { lock.withLock { !_disconnects.isEmpty } }
-    var transportDropCalled: Bool { lock.withLock { !_transportDrops.isEmpty } }
-
-    /// The error value from the first `onDisconnect` call. `nil` means clean close.
-    var firstDisconnectErr: Error? {
-        lock.withLock { _disconnects.first.flatMap { $0 } }
-    }
-}
-
-/// Reference box for capturing a value in a `@Sendable` closure.
-private final class Ref<T>: @unchecked Sendable {
-    var value: T?
-    init(_ v: T? = nil) { value = v }
-}
-
-private enum TestServerError: Error {
-    case notFound
-    case buildFailed(String)
-    case startFailed
-    case timeout
-}
-
 // MARK: - ClientTests
 
 /// Integration tests against the shared Go testserver.
@@ -56,9 +15,9 @@ private enum TestServerError: Error {
 final class ClientTests: XCTestCase {
     // ── Class-level server ───────────────────────────────────────────────────
 
-    nonisolated(unsafe) private static var serverProcess: Process?
-    nonisolated(unsafe) private static var serverUrl: String = ""
-    nonisolated(unsafe) private static var controlUrl: String = ""
+    nonisolated(unsafe) static var serverProcess: Process?
+    nonisolated(unsafe) static var serverUrl: String = ""
+    nonisolated(unsafe) static var controlUrl: String = ""
 
     override class func setUp() {
         super.setUp()
@@ -78,7 +37,7 @@ final class ClientTests: XCTestCase {
 
     // ── Per-test teardown ────────────────────────────────────────────────────
 
-    private var testClient: WspulseClient?
+    var testClient: WspulseClient?
 
     override func tearDown() async throws {
         if let client = testClient {
@@ -91,12 +50,12 @@ final class ClientTests: XCTestCase {
 
     // ── Test helpers ─────────────────────────────────────────────────────────
 
-    private func wsUrl(_ suffix: String = "") -> URL {
+    func wsUrl(_ suffix: String = "") -> URL {
         URL(string: Self.serverUrl + suffix)!
     }
 
     /// Polls `condition` every 50 ms until it returns `true` or `timeout` elapses.
-    private func waitUntil(
+    func waitUntil(
         timeout: TimeInterval = 10,
         _ condition: @escaping @Sendable () -> Bool
     ) async throws {
@@ -109,120 +68,29 @@ final class ClientTests: XCTestCase {
     }
 
     @discardableResult
-    private func kick(_ id: String) async throws -> Bool {
+    func kick(_ id: String) async throws -> Bool {
         var req = URLRequest(url: URL(string: "\(Self.controlUrl)/kick?id=\(id)")!)
         req.httpMethod = "POST"
         let (_, resp) = try await URLSession.shared.data(for: req)
         return (resp as? HTTPURLResponse)?.statusCode == 200
     }
 
-    private func shutdown() async throws {
+    func shutdown() async throws {
         var req = URLRequest(url: URL(string: "\(Self.controlUrl)/shutdown")!)
         req.httpMethod = "POST"
         _ = try await URLSession.shared.data(for: req)
     }
 
-    private func restart() async throws {
+    func restart() async throws {
         var req = URLRequest(url: URL(string: "\(Self.controlUrl)/restart")!)
         req.httpMethod = "POST"
         _ = try await URLSession.shared.data(for: req)
     }
+}
 
-    // ── Testserver startup ───────────────────────────────────────────────────
+// MARK: - Test cases
 
-    private static func startTestServer() throws {
-        let testserverDir = try findTestserverDir()
-
-        // Build the testserver binary from source.
-        let binaryName = "testserver"
-        let buildProc = Process()
-        buildProc.currentDirectoryURL = testserverDir
-        buildProc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        buildProc.arguments = ["go", "build", "-o", binaryName, "."]
-        let buildErrPipe = Pipe()
-        buildProc.standardError = buildErrPipe
-        buildProc.standardOutput = Pipe()
-        try buildProc.run()
-        buildProc.waitUntilExit()
-        guard buildProc.terminationStatus == 0 else {
-            let msg = String(data: buildErrPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            throw TestServerError.buildFailed(msg)
-        }
-
-        // Start the testserver process.
-        let proc = Process()
-        proc.currentDirectoryURL = testserverDir
-        proc.executableURL = testserverDir.appendingPathComponent(binaryName)
-        let stderrPipe = Pipe()
-        proc.standardOutput = Pipe()
-        proc.standardError = stderrPipe
-        try proc.run()
-
-        // Block until "READY:<ws_port>:<control_port>" appears on stderr (max 30 s).
-        final class ReadyState: @unchecked Sendable {
-            var wsPort = 0
-            var controlPort = 0
-            var error: Error?
-        }
-        let ready = ReadyState()
-        let sem = DispatchSemaphore(value: 0)
-
-        DispatchQueue.global().async {
-            let handle = stderrPipe.fileHandleForReading
-            var buffer = ""
-            while proc.isRunning {
-                let data = handle.availableData
-                if data.isEmpty { break }
-                buffer += String(data: data, encoding: .utf8) ?? ""
-                let lines = buffer.components(separatedBy: "\n")
-                for line in lines.dropLast() {
-                    if line.hasPrefix("READY:") {
-                        let rest = line.dropFirst("READY:".count).trimmingCharacters(in: .whitespaces)
-                        let parts = rest.split(separator: ":")
-                        if parts.count == 2,
-                           let ws = Int(parts[0]),
-                           let ctl = Int(parts[1]) {
-                            ready.wsPort = ws
-                            ready.controlPort = ctl
-                            sem.signal()
-                            return
-                        }
-                    }
-                }
-                buffer = lines.last ?? ""
-            }
-            ready.error = TestServerError.startFailed
-            sem.signal()
-        }
-
-        guard sem.wait(timeout: .now() + 30) == .success else {
-            proc.terminate()
-            throw TestServerError.timeout
-        }
-        if let err = ready.error {
-            proc.terminate()
-            throw err
-        }
-
-        serverProcess = proc
-        serverUrl = "ws://127.0.0.1:\(ready.wsPort)"
-        controlUrl = "http://127.0.0.1:\(ready.controlPort)"
-    }
-
-    private static func findTestserverDir() throws -> URL {
-        var dir = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        while true {
-            let candidate = dir.appendingPathComponent("testserver")
-            if FileManager.default.fileExists(atPath: candidate.appendingPathComponent("main.go").path) {
-                return candidate
-            }
-            let parent = dir.deletingLastPathComponent()
-            guard parent.path != dir.path else { break }
-            dir = parent
-        }
-        throw TestServerError.notFound
-    }
-
+extension ClientTests {
     // ── Scenario 1: connect → send → echo → close clean ─────────────────────
 
     func testConnectSendEchoCloseClean() async throws {
@@ -335,7 +203,7 @@ final class ClientTests: XCTestCase {
         // Always restart the server so subsequent tests can connect.
         try? await restart()
 
-        if let e = waitError { throw e }
+        if let err = waitError { throw err }
 
         if let wspErr = state.firstDisconnectErr as? WspulseError {
             XCTAssertEqual(wspErr, .retriesExhausted)
@@ -441,12 +309,12 @@ final class ClientTests: XCTestCase {
         try await client.connect()
 
         try await withThrowingTaskGroup(of: Void.self) { group in
-            for s in 0..<senders {
+            for senderIdx in 0..<senders {
                 group.addTask {
-                    for m in 0..<msgsPerSender {
+                    for msgIdx in 0..<msgsPerSender {
                         try await client.send(Frame(
                             event: "concurrent",
-                            payload: .object(["s": .number(Double(s)), "m": .number(Double(m))])
+                            payload: .object(["s": .number(Double(senderIdx)), "m": .number(Double(msgIdx))])
                         ))
                     }
                 }
@@ -467,11 +335,12 @@ final class ClientTests: XCTestCase {
                 let sVal = obj["s"]?.numberValue,
                 let mVal = obj["m"]?.numberValue
             else { continue }
-            let s = Int(sVal), m = Int(mVal)
-            if let prev = lastM[s] {
-                XCTAssertGreaterThan(m, prev, "sender \(s): m=\(m) arrived after m=\(prev)")
+            let senderID = Int(sVal)
+            let msgIdx = Int(mVal)
+            if let prev = lastM[senderID] {
+                XCTAssertGreaterThan(msgIdx, prev, "sender \(senderID): m=\(msgIdx) arrived after m=\(prev)")
             }
-            lastM[s] = m
+            lastM[senderID] = msgIdx
         }
     }
 
@@ -561,14 +430,14 @@ final class ClientTests: XCTestCase {
         testClient = client
         try await client.connect()
 
-        for i in 0..<count {
-            try await client.send(Frame(event: "seq", payload: .object(["i": .number(Double(i))])))
+        for idx in 0..<count {
+            try await client.send(Frame(event: "seq", payload: .object(["i": .number(Double(idx))])))
         }
 
         try await waitUntil(timeout: 10) { state.receivedCount >= count }
-        for i in 0..<count {
-            XCTAssertEqual(state.received[i].event, "seq")
-            XCTAssertEqual(state.received[i].payload, .object(["i": .number(Double(i))]))
+        for idx in 0..<count {
+            XCTAssertEqual(state.received[idx].event, "seq")
+            XCTAssertEqual(state.received[idx].payload, .object(["i": .number(Double(idx))]))
         }
     }
 
@@ -591,7 +460,7 @@ final class ClientTests: XCTestCase {
         XCTAssertEqual(state.received.first?.payload, .string("pong"))
     }
 
-    // ── Additional 5: server-initiated kick ───────────────────────────────────
+    // ── Additional 5: server-initiated kick ──────────────────────────────────
 
     func testDetectsServerInitiatedKickViaControlAPI() async throws {
         let id = "kick-test-swift"
