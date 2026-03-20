@@ -5,13 +5,7 @@ import XCTest
 // MARK: - ClientIntegrationTests
 
 /// Integration tests against the shared Go testserver.
-///
-/// The testserver is built and started once per test class. It emits
-/// `READY:<ws_port>:<control_port>` on stderr when ready. All 14 scenarios
-/// defined in `doc/integration-tests.md` are covered here.
-///
-/// Run:  `swift test --filter ClientIntegrationTests`
-/// Or:   `make test-integration`
+/// Run: `swift test --filter ClientIntegrationTests` or `make test-integration`
 final class ClientIntegrationTests: XCTestCase {
     // ── Class-level server ───────────────────────────────────────────────────
 
@@ -63,11 +57,7 @@ final class ClientIntegrationTests: XCTestCase {
         URL(string: Self.serverUrl + suffix)!
     }
 
-    /// Polls `condition` every 50 ms until it returns `true` or `timeout` elapses.
-    func waitUntil(
-        timeout: TimeInterval = 10,
-        _ condition: @escaping @Sendable () -> Bool
-    ) async throws {
+    func waitUntil(timeout: TimeInterval = 10, _ condition: @escaping @Sendable () -> Bool) async throws {
         let deadline = Date(timeIntervalSinceNow: timeout)
         while Date() < deadline {
             if condition() { return }
@@ -103,7 +93,6 @@ final class ClientIntegrationTests: XCTestCase {
 
 extension ClientIntegrationTests {
     // ── Scenario 1: connect → send → echo → close clean ─────────────────────
-
     func testConnectSendEchoCloseClean() async throws {
         let state = TestState()
         let client = WspulseClient(
@@ -128,7 +117,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 2: server drop → onTransportDrop + onDisconnect (no reconnect)
-
     func testServerDropFiresTransportDropAndDisconnect() async throws {
         let id = "drop-no-reconnect-swift"
         let state = TestState()
@@ -150,7 +138,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 3: auto-reconnect after kick ────────────────────────────────
-
     func testReconnectsAfterKickAndResumesEcho() async throws {
         let id = "reconnect-swift"
         let state = TestState()
@@ -186,7 +173,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 4: retries exhausted ────────────────────────────────────────
-
     func testFiresRetriesExhaustedAfterShutdown() async throws {
         let state = TestState()
         let client = WspulseClient(
@@ -224,7 +210,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 5: close() during reconnect fires onDisconnect(nil) ─────────
-
     func testCloseDuringReconnectFiresDisconnectNil() async throws {
         let id = "close-reconnect-swift"
         let state = TestState()
@@ -256,7 +241,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 6: send after close → connectionClosed ──────────────────────
-
     func testSendAfterCloseThrowsConnectionClosed() async throws {
         let client = WspulseClient(url: wsUrl())
         testClient = client
@@ -273,7 +257,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 7: heartbeat pong timeout → connectionLost ──────────────────
-
     func testPongTimeoutTriggersConnectionLost() async throws {
         let state = TestState()
         let client = WspulseClient(
@@ -304,7 +287,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 8: concurrent sends do not race ─────────────────────────────
-
     func testConcurrentSendsDoNotRace() async throws {
         let senders = 10
         let msgsPerSender = 10
@@ -356,7 +338,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Scenario 9: close() racing with transport drop fires onDisconnect once
-
     func testCloseRacingWithTransportDropFiresDisconnectOnce() async throws {
         let id = "close-race-swift"
         let state = TestState()
@@ -381,7 +362,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Additional 1: frame field round-trip ─────────────────────────────────
-
     func testRoundTripsAllFrameFields() async throws {
         let state = TestState()
         let client = WspulseClient(
@@ -409,26 +389,19 @@ extension ClientIntegrationTests {
     }
 
     // ── Additional 2: server rejection ───────────────────────────────────────
-
     func testHandlesServerRejectionGracefully() async throws {
-        let state = TestState()
-        let client = WspulseClient(
-            url: wsUrl("?reject=1"),
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) },
-                onTransportDrop: { state.addTransportDrop($0) }
-            )
-        )
+        // connect() must throw on handshake failure (HTTP 403).
+        let client = WspulseClient(url: wsUrl("?reject=1"))
         testClient = client
-        try await client.connect()
-
-        // Server returns HTTP 403; the read loop surfaces the error via onDisconnect.
-        try await waitUntil(timeout: 10) { state.disconnectCalled }
-        XCTAssertTrue(state.disconnectCalled)
+        do {
+            try await client.connect()
+            XCTFail("Expected connect() to throw on server rejection")
+        } catch {
+            XCTAssertFalse(error.localizedDescription.isEmpty)
+        }
     }
 
     // ── Additional 3: message ordering ───────────────────────────────────────
-
     func testSendsMultipleFramesAndReceivesThemInOrder() async throws {
         let count = 10
         let state = TestState()
@@ -453,7 +426,6 @@ extension ClientIntegrationTests {
     }
 
     // ── Additional 4: room routing ────────────────────────────────────────────
-
     func testConnectsToSpecificRoomViaQueryParam() async throws {
         let state = TestState()
         let client = WspulseClient(
@@ -471,7 +443,41 @@ extension ClientIntegrationTests {
         XCTAssertEqual(state.received.first?.payload, .string("pong"))
     }
 
-    // ── Additional 5: server-initiated kick ──────────────────────────────────
+    // ── Additional 5+: close idempotency, disconnect once, kick ─────────────
+    func testOnDisconnectFiresExactlyOnceOnClose() async throws {
+        let state = TestState()
+        let client = WspulseClient(
+            url: wsUrl(),
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) }
+            )
+        )
+        testClient = client
+        try await client.connect()
+
+        await client.close()
+        for await _ in client.done {}
+        XCTAssertEqual(state.disconnectCount, 1)
+        XCTAssertNil(state.firstDisconnectErr)
+    }
+
+    func testCloseIsIdempotent() async throws {
+        let state = TestState()
+        let client = WspulseClient(
+            url: wsUrl(),
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) }
+            )
+        )
+        testClient = client
+        try await client.connect()
+
+        await client.close()
+        await client.close()
+        await client.close()
+        for await _ in client.done {}
+        XCTAssertEqual(state.disconnectCount, 1)
+    }
 
     func testDetectsServerInitiatedKickViaControlAPI() async throws {
         let id = "kick-test-swift"

@@ -61,20 +61,30 @@ public actor WspulseClient {
 
     /// Establish the WebSocket connection.
     ///
-    /// This method starts the connection attempt and internal loops. It does
-    /// **not** throw on WebSocket handshake failure (e.g. HTTP 403); such
-    /// errors are delivered asynchronously via ``WspulseClientOptions/onTransportDrop``
-    /// and ``WspulseClientOptions/onDisconnect``.
+    /// Throws if the WebSocket handshake fails (e.g. HTTP 403), regardless
+    /// of whether auto-reconnect is enabled. Auto-reconnect only activates
+    /// after a successful initial connection — initial failures typically
+    /// indicate configuration errors that retries cannot fix.
     ///
     /// Idempotent: calling after the connection is already established is a no-op.
     ///
     /// - Throws: ``WspulseError/connectionClosed`` if the client has been permanently closed.
+    /// - Throws: The underlying handshake error if the initial dial fails.
     public func connect() async throws {
         guard !closed else { throw WspulseError.connectionClosed }
         guard !started else { return }
         started = true
 
-        await connection.dial(url: url, headers: options.dialHeaders)
+        do {
+            try await connection.dial(url: url, headers: options.dialHeaders)
+        } catch {
+            // Initial dial failure is always fatal — no callbacks, no Client.
+            await connection.close()
+            closed = true
+            doneContinuation.yield()
+            doneContinuation.finish()
+            throw error
+        }
 
         startReadLoop()
         startWriteLoop()
@@ -158,6 +168,11 @@ public actor WspulseClient {
         // write task gets its own iterator. AsyncStream supports only one active
         // iterator: if we reused the same stream, the old (cancelled) task's iterator
         // and the new task's iterator would compete and yields would be lost.
+        //
+        // Finish the old continuation first to prevent dangling references and
+        // ensure yields to the old stream are not silently lost.
+        writeSignalContinuation.finish()
+
         var newCont: AsyncStream<Void>.Continuation!
         let newStream = AsyncStream<Void> { newCont = $0 }
         writeSignal = newStream
@@ -224,7 +239,10 @@ public actor WspulseClient {
     private func handleTransportDrop(error: Error) async {
         guard !closed, !reconnecting else { return }
 
-        // Stop current loops
+        // Cancel current loops. We must NOT await them here because this
+        // method is called from within readTask or pingTask — awaiting the
+        // calling task would deadlock. Task cleanup is handled by close()
+        // and reconnected() instead.
         readTask?.cancel()
         writeTask?.cancel()
         pingTask?.cancel()
@@ -279,7 +297,7 @@ public actor WspulseClient {
                 if Task.isCancelled { return }
 
                 if succeeded {
-                    await self.reconnected()
+                    await self.reconnected()  // cancel old tasks, start new loops
                     return
                 }
 
@@ -296,8 +314,8 @@ public actor WspulseClient {
     /// Returns `true` on success, `false` on failure.
     private func attemptReconnect() async -> Bool {
         await connection.close()
-        await connection.dial(url: url, headers: options.dialHeaders)
         do {
+            try await connection.dial(url: url, headers: options.dialHeaders)
             try await connection.sendPing()
             return true
         } catch {
@@ -306,6 +324,11 @@ public actor WspulseClient {
     }
 
     private func reconnected() {
+        // Old tasks were already cancelled by handleTransportDrop. We cannot
+        // await them here because writeTask blocks on AsyncStream iteration
+        // which does not respond to Task cancellation — awaiting would
+        // deadlock. The cancelled tasks will exit naturally once their loops
+        // detect cancellation or the stream finishes.
         reconnecting = false
         startReadLoop()
         startWriteLoop()

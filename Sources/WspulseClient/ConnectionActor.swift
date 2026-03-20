@@ -102,15 +102,14 @@ actor ConnectionActor {
 
     /// Open a WebSocket connection to the given URL with optional headers.
     ///
-    /// Returns only after the WebSocket upgrade handshake either succeeds or
-    /// fails, guaranteeing that the connection is registered server-side before
-    /// returning. On failure the task is in an error state; the caller's read
-    /// loop will detect this when it calls `receive()`.
+    /// Suspends until the WebSocket upgrade handshake completes. Throws on
+    /// handshake failure (e.g. HTTP 403), allowing `connect()` to propagate
+    /// the error when auto-reconnect is disabled.
     ///
-    /// After the handshake, a close-detection handler is installed so that
-    /// server-initiated close frames cancel the underlying task, causing
-    /// `receive()` to throw and trigger the reconnect/disconnect flow.
-    func dial(url: URL, headers: [String: String]) async {
+    /// On success, installs a close-detection handler so that server-initiated
+    /// close frames cancel the underlying task, causing `receive()` to throw
+    /// and trigger the reconnect/disconnect flow.
+    func dial(url: URL, headers: [String: String]) async throws {
         let configuration = URLSessionConfiguration.default
         var request = URLRequest(url: url)
         for (key, value) in headers {
@@ -127,11 +126,11 @@ actor ConnectionActor {
         self.task = wsTask
 
         let capturedTask = wsTask
-        await withTaskCancellationHandler {
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 delegate.configure(
                     onOpen: { continuation.resume() },
-                    onFail: { _ in continuation.resume() }
+                    onFail: { error in continuation.resume(throwing: error) }
                 )
                 capturedTask.resume()
             }
@@ -139,7 +138,7 @@ actor ConnectionActor {
             capturedTask.cancel(with: .goingAway, reason: nil)
         }
 
-        // After handshake, install close detection. When the server closes
+        // Handshake succeeded — install close detection. When the server closes
         // the connection, cancel the task so receive() throws immediately.
         delegate.setOnClose {
             capturedTask.cancel(with: .goingAway, reason: nil)

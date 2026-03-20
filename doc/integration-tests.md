@@ -26,12 +26,14 @@ Integration tests run against a live `wspulse/server` via the shared
 
 ## Additional Tests
 
-| Test Name                                       | What It Covers                              |
-| ----------------------------------------------- | ------------------------------------------- |
-| `testRoundTripsAllFrameFields`                  | Full Frame field fidelity through the wire  |
-| `testHandlesServerRejectionGracefully`          | Server returns HTTP 403 via `?reject=1`     |
-| `testSendsMultipleFramesAndReceivesThemInOrder` | Message ordering preservation               |
-| `testConnectsToSpecificRoomViaQueryParam`       | Room routing via `?room=…`                  |
-| `testDetectsServerInitiatedKickViaControlAPI`   | `POST /kick?id=…` → `onDisconnect(non-nil)` |
+| Test Name                                       | What It Covers                                |
+| ----------------------------------------------- | --------------------------------------------- |
+| `testRoundTripsAllFrameFields`                  | Full Frame field fidelity through the wire    |
+| `testHandlesServerRejectionGracefully`          | `connect()` throws on HTTP 403 via `?reject=1` |
+| `testSendsMultipleFramesAndReceivesThemInOrder` | Message ordering preservation                 |
+| `testConnectsToSpecificRoomViaQueryParam`       | Room routing via `?room=…`                    |
+| `testOnDisconnectFiresExactlyOnceOnClose`       | User-initiated close fires exactly one callback |
+| `testCloseIsIdempotent`                         | Multiple `close()` calls fire one callback    |
+| `testDetectsServerInitiatedKickViaControlAPI`   | `POST /kick?id=…` → `onDisconnect(non-nil)`   |
 
-**Total: 14 integration tests** (9 scenarios + 5 additional).
+**Total: 16 integration tests** (9 scenarios + 7 additional).

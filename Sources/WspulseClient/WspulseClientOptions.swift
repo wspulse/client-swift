@@ -12,6 +12,8 @@ public struct AutoReconnectOptions: Sendable {
     public var maxDelay: Duration
 
     public init(maxRetries: Int = 0, baseDelay: Duration = .seconds(1), maxDelay: Duration = .seconds(30)) {
+        precondition(baseDelay > .zero, "wspulse: baseDelay must be positive")
+        precondition(maxDelay >= baseDelay, "wspulse: maxDelay must be >= baseDelay")
         self.maxRetries = maxRetries
         self.baseDelay = baseDelay
         self.maxDelay = maxDelay
@@ -27,6 +29,8 @@ public struct HeartbeatOptions: Sendable {
     public var pongWait: Duration
 
     public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
+        precondition(pingPeriod > .zero, "wspulse: pingPeriod must be positive")
+        precondition(pongWait > pingPeriod, "wspulse: pongWait must be greater than pingPeriod")
         self.pingPeriod = pingPeriod
         self.pongWait = pongWait
     }
@@ -76,6 +80,8 @@ public struct WspulseClientOptions: Sendable {
         dialHeaders: [String: String] = [:],
         codec: any WspulseCodec = JSONCodec()
     ) {
+        precondition(maxMessageSize > 0, "wspulse: maxMessageSize must be positive")
+        precondition(writeWait > .zero, "wspulse: writeWait must be positive")
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
         self.onReconnect = onReconnect
