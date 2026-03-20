@@ -155,7 +155,7 @@ actor ConnectionActor {
         switch frameType {
         case .text:
             guard let string = String(data: data, encoding: .utf8) else {
-                throw WspulseError.connectionClosed
+                preconditionFailure("wspulse: attempted to send non-UTF8 data as a text WebSocket frame")
             }
             message = .string(string)
         case .binary:

@@ -61,6 +61,11 @@ public actor WspulseClient {
 
     /// Establish the WebSocket connection.
     ///
+    /// This method starts the connection attempt and internal loops. It does
+    /// **not** throw on WebSocket handshake failure (e.g. HTTP 403); such
+    /// errors are delivered asynchronously via ``WspulseClientOptions/onTransportDrop``
+    /// and ``WspulseClientOptions/onDisconnect``.
+    ///
     /// Idempotent: calling after the connection is already established is a no-op.
     ///
     /// - Throws: ``WspulseError/connectionClosed`` if the client has been permanently closed.
@@ -136,8 +141,9 @@ public actor WspulseClient {
             while !Task.isCancelled {
                 do {
                     let data = try await self.connection.receive()
-                    let frame = await self.decodeFrame(data)
-                    await self.handleMessage(frame)
+                    if let frame = await self.decodeFrame(data) {
+                        await self.handleMessage(frame)
+                    }
                 } catch {
                     if Task.isCancelled { return }
                     await self.handleTransportDrop(error: error)
@@ -227,6 +233,9 @@ public actor WspulseClient {
 
         guard options.autoReconnect != nil else {
             // No auto-reconnect: permanent disconnect.
+            // onTransportDrop already delivered the raw error; onDisconnect
+            // receives the typed WspulseError (matches client-kt's
+            // ConnectionLostException wrapping pattern).
             closed = true
             await connection.close()
             options.onDisconnect?(WspulseError.connectionLost)
@@ -321,9 +330,13 @@ public actor WspulseClient {
 
     // MARK: - Helpers
 
-    private func decodeFrame(_ data: Data) -> Frame {
-        // Best-effort decode; if it fails, return an empty frame
-        (try? options.codec.decode(data)) ?? Frame()
+    private func decodeFrame(_ data: Data) -> Frame? {
+        do {
+            return try options.codec.decode(data)
+        } catch {
+            // Skip malformed frames (matches client-kt behaviour).
+            return nil
+        }
     }
 
     private func handleMessage(_ frame: Frame) {
