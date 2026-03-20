@@ -126,7 +126,7 @@ extension ClientIntegrationTests {
         proc.currentDirectoryURL = testserverDir
         proc.executableURL = testserverDir.appendingPathComponent(binaryName)
         let stderrPipe = Pipe()
-        proc.standardOutput = Pipe()
+        proc.standardOutput = FileHandle.nullDevice
         proc.standardError = stderrPipe
         try proc.run()
 

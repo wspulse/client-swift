@@ -18,6 +18,7 @@ public actor WspulseClient {
     private let doneContinuation: AsyncStream<Void>.Continuation
 
     private var closed = false
+    private var started = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
@@ -60,9 +61,13 @@ public actor WspulseClient {
 
     /// Establish the WebSocket connection.
     ///
+    /// Idempotent: calling after the connection is already established is a no-op.
+    ///
     /// - Throws: ``WspulseError/connectionClosed`` if the client has been permanently closed.
     public func connect() async throws {
         guard !closed else { throw WspulseError.connectionClosed }
+        guard !started else { return }
+        started = true
 
         await connection.dial(url: url, headers: options.dialHeaders)
 
@@ -75,6 +80,7 @@ public actor WspulseClient {
     ///
     /// - Throws: ``WspulseError/connectionClosed`` if the client is closed.
     /// - Throws: ``WspulseError/sendBufferFull`` if the buffer is full.
+    /// - Throws: An error from the codec if frame serialization fails.
     public func send(_ frame: Frame) throws {
         guard !closed else { throw WspulseError.connectionClosed }
 
@@ -344,8 +350,10 @@ public actor WspulseClient {
                 }
             } catch {
                 if closed { return }
-                // Re-insert at front if send failed (will retry after reconnect)
+                // Re-insert at front so the frame is retried after reconnect,
+                // then trigger the transport-drop flow immediately.
                 sendBuffer.insert(data, at: 0)
+                await handleTransportDrop(error: error)
                 return
             }
         }

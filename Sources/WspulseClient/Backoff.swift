@@ -22,5 +22,7 @@ func backoff(attempt: Int, base: Duration, max: Duration) -> Duration {
     let raw = Swift.min(baseSeconds * multiplier, maxSeconds)
     let jitter = Double.random(in: 0.5...1.0)
     let result = raw * jitter
-    return .nanoseconds(Int64(result * 1_000_000_000))
+    let nanos = result * 1_000_000_000
+    let clampedNanos = Swift.min(Swift.max(nanos, Double(Int64.min)), Double(Int64.max))
+    return .nanoseconds(Int64(clampedNanos))
 }
