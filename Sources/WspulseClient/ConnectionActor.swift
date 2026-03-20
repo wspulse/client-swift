@@ -30,13 +30,14 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
     /// successful handshake. If the close event already occurred before
     /// the handler is set, the handler is called immediately.
     func setOnClose(_ handler: @escaping () -> Void) {
-        lock.withLock {
+        let shouldCallNow: Bool = lock.withLock {
             if closeFired {
-                handler()
-            } else {
-                self.onClose = handler
+                return true
             }
+            self.onClose = handler
+            return false
         }
+        if shouldCallNow { handler() }
     }
 
     func urlSession(
@@ -77,12 +78,14 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
     }
 
     private func fireOnClose() {
-        lock.withLock {
-            guard !closeFired else { return }
+        let handler: (() -> Void)? = lock.withLock {
+            guard !closeFired else { return nil }
             closeFired = true
-            onClose?()
+            let captured = onClose
             onClose = nil
+            return captured
         }
+        handler?()
     }
 }
 

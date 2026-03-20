@@ -1,12 +1,13 @@
 # Integration Test Coverage — client-swift
 
-> **Contract:** all scenarios defined in
-> [`.github/doc/contracts/integration-test-scenarios.md`](https://github.com/wspulse/.github/blob/main/doc/contracts/integration-test-scenarios.md)
+> **Contract:** all scenarios defined in the
+> [integration-test-scenarios contract](https://github.com/wspulse/.github/blob/main/doc/contracts/integration-test-scenarios.md)
 
 Integration tests run against a live `wspulse/server` via the shared
 [testserver](https://github.com/wspulse/testserver). The Go test server is spawned by
 `Process` in `setUp` and killed in `tearDown`.
 
+**Test class:** `ClientIntegrationTests` (in `Tests/WspulseClientTests/ClientIntegrationTests.swift`)
 **Run:** `swift test --filter ClientIntegrationTests` (or `make test-integration`)
 
 ## Scenario Matrix

@@ -18,7 +18,6 @@ public actor WspulseClient {
     private let doneContinuation: AsyncStream<Void>.Continuation
 
     private var closed = false
-    private var connected = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
@@ -61,12 +60,11 @@ public actor WspulseClient {
 
     /// Establish the WebSocket connection.
     ///
-    /// Throws if the initial connection fails and auto-reconnect is disabled.
+    /// - Throws: ``WspulseError/connectionClosed`` if the client has been permanently closed.
     public func connect() async throws {
         guard !closed else { throw WspulseError.connectionClosed }
 
         await connection.dial(url: url, headers: options.dialHeaders)
-        connected = true
 
         startReadLoop()
         startWriteLoop()
@@ -96,7 +94,6 @@ public actor WspulseClient {
     public func close() async {
         guard !closed else { return }
         closed = true
-        connected = false
         reconnecting = false
 
         // Cancel all internal tasks
@@ -163,6 +160,13 @@ public actor WspulseClient {
                 await self.drainBuffer()
             }
         }
+
+        // If there are messages that were enqueued before this connection cycle
+        // completed (e.g. while connect() was still dialing), make sure the new
+        // write loop is kicked so it can begin draining the existing buffer.
+        if !sendBuffer.isEmpty {
+            writeSignalContinuation.yield()
+        }
     }
 
     private func startPingLoop() {
@@ -205,9 +209,8 @@ public actor WspulseClient {
 
     // MARK: - Reconnect
 
-    private func handleTransportDrop(error: Error) {
+    private func handleTransportDrop(error: Error) async {
         guard !closed, !reconnecting else { return }
-        connected = false
 
         // Stop current loops
         readTask?.cancel()
@@ -218,9 +221,8 @@ public actor WspulseClient {
 
         guard options.autoReconnect != nil else {
             // No auto-reconnect: permanent disconnect.
-            // Close transport to release URLSession resources.
             closed = true
-            Task { await connection.close() }
+            await connection.close()
             options.onDisconnect?(WspulseError.connectionLost)
             doneContinuation.yield()
             doneContinuation.finish()
@@ -289,7 +291,6 @@ public actor WspulseClient {
     }
 
     private func reconnected() {
-        connected = true
         reconnecting = false
         startReadLoop()
         startWriteLoop()
@@ -302,12 +303,11 @@ public actor WspulseClient {
         options.onReconnect?(attempt)
     }
 
-    private func reconnectExhausted() {
+    private func reconnectExhausted() async {
         guard !closed else { return }
         closed = true
-        connected = false
         reconnecting = false
-        Task { await connection.close() }
+        await connection.close()
         options.onDisconnect?(WspulseError.retriesExhausted)
         doneContinuation.yield()
         doneContinuation.finish()
