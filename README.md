@@ -240,6 +240,27 @@ Default: `JSONCodec` (JSON text frames).
 | `maxMessageSize`  | `Int`                        | 1 MiB       | Max inbound message size.                   |
 | `dialHeaders`     | `[String: String]`           | `[:]`       | Extra HTTP headers for WebSocket upgrade.   |
 | `codec`           | `any WspulseCodec`           | `JSONCodec` | Wire-format codec.                          |
+| `logger`          | `os.Logger`                  | enabled     | Logger for internal diagnostics.            |
+
+### Logging
+
+The client logs internal diagnostics via Apple's [unified logging system](https://developer.apple.com/documentation/os/logging) (`os.Logger`). Enabled by default with subsystem `com.wspulse`.
+
+**Replace the logger** with your own:
+
+```swift
+let options = WspulseClientOptions(
+    logger: Logger(subsystem: "com.myapp", category: "network")
+)
+```
+
+**Disable logging:**
+
+```swift
+let options = WspulseClientOptions(
+    logger: Logger(.disabled)
+)
+```
 
 ### `AutoReconnectOptions`
 

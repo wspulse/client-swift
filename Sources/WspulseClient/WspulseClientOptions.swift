@@ -70,8 +70,6 @@ public struct WspulseClientOptions: Sendable {
     public var codec: any WspulseCodec
 
     /// Logger for internal diagnostics. Enabled by default.
-    ///
-    /// Pass `Logger(.disabled)` to suppress all log output.
     public var logger: os.Logger
 
     public init(
