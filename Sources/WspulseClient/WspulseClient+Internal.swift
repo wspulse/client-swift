@@ -106,6 +106,14 @@ extension WspulseClient {
             closed = true
             writeSignalContinuation.finish()
             await connection.close()
+
+            // Await non-calling tasks. We cannot await the task that called
+            // handleTransportDrop (readTask or pingTask) without deadlocking,
+            // but writeTask is safe to await since it was cancelled above and
+            // the stream is finished.
+            await writeTask?.value
+            writeTask = nil
+
             options.onDisconnect?(WspulseError.connectionLost)
             doneContinuation.yield()
             doneContinuation.finish()
@@ -172,6 +180,7 @@ extension WspulseClient {
             try await connection.sendPing()
             return true
         } catch {
+            options.logger.debug("wspulse/client: reconnect dial failed: \(error)")
             return false
         }
     }
