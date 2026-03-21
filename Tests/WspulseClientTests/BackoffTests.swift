@@ -73,6 +73,42 @@ final class BackoffTests: XCTestCase {
         XCTAssertGreaterThan(aboveMid, iterations / 5, "Expected some values above midpoint")
     }
 
+    func testBaseEqualsMaxCapsCorrectly() {
+        let base = Duration.seconds(5)
+        let max = Duration.seconds(5)
+        // attempt=5 → 5 * 2^5 = 160, capped at 5 → jitter ∈ [2.5, 5.0]
+        for _ in 0..<100 {
+            let delay = backoff(attempt: 5, base: base, max: max)
+            let seconds = durationToSeconds(delay)
+            XCTAssertGreaterThanOrEqual(seconds, 2.5)
+            XCTAssertLessThanOrEqual(seconds, 5.0)
+        }
+    }
+
+    func testSmallSubSecondBase() {
+        let base = Duration.milliseconds(100)
+        let max = Duration.seconds(10)
+        // attempt=0 → 0.1 * 1 = 0.1 → jitter ∈ [0.05, 0.1]
+        for _ in 0..<100 {
+            let delay = backoff(attempt: 0, base: base, max: max)
+            let seconds = durationToSeconds(delay)
+            XCTAssertGreaterThanOrEqual(seconds, 0.05)
+            XCTAssertLessThanOrEqual(seconds, 0.1)
+        }
+    }
+
+    func testAttemptOneDoublesBase() {
+        let base = Duration.seconds(1)
+        let max = Duration.seconds(30)
+        // attempt=1 → 1 * 2^1 = 2 → jitter ∈ [1.0, 2.0]
+        for _ in 0..<100 {
+            let delay = backoff(attempt: 1, base: base, max: max)
+            let seconds = durationToSeconds(delay)
+            XCTAssertGreaterThanOrEqual(seconds, 1.0)
+            XCTAssertLessThanOrEqual(seconds, 2.0)
+        }
+    }
+
     // MARK: - Helpers
 
     private func durationToSeconds(_ dur: Duration) -> Double {
