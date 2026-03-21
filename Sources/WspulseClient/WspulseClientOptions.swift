@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Configuration for automatic reconnection with exponential backoff.
 public struct AutoReconnectOptions: Sendable {
@@ -68,6 +69,12 @@ public struct WspulseClientOptions: Sendable {
     /// Wire-format codec for encoding/decoding Frames.
     public var codec: any WspulseCodec
 
+    /// Logger for internal diagnostics. Defaults to disabled (no output).
+    ///
+    /// Pass `Logger(subsystem: "com.wspulse.client", category: "WspulseClient")`
+    /// to enable logging to the unified logging system.
+    public var logger: os.Logger
+
     public init(
         onMessage: (@Sendable (Frame) -> Void)? = nil,
         onDisconnect: (@Sendable (Error?) -> Void)? = nil,
@@ -78,7 +85,8 @@ public struct WspulseClientOptions: Sendable {
         writeWait: Duration = .seconds(10),
         maxMessageSize: Int = 1_048_576,
         dialHeaders: [String: String] = [:],
-        codec: any WspulseCodec = JSONCodec()
+        codec: any WspulseCodec = JSONCodec(),
+        logger: os.Logger = Logger(.disabled)
     ) {
         precondition(maxMessageSize > 0, "wspulse: maxMessageSize must be positive")
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
@@ -92,5 +100,6 @@ public struct WspulseClientOptions: Sendable {
         self.maxMessageSize = maxMessageSize
         self.dialHeaders = dialHeaders
         self.codec = codec
+        self.logger = logger
     }
 }

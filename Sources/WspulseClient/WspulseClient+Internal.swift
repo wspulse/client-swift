@@ -25,13 +25,6 @@ extension WspulseClient {
     }
 
     func startWriteLoop() {
-        // Create a fresh write-signal stream for this connection cycle so the new
-        // write task gets its own iterator. AsyncStream supports only one active
-        // iterator: if we reused the same stream, the old (cancelled) task's iterator
-        // and the new task's iterator would compete and yields would be lost.
-        //
-        // Finish the old continuation first to prevent dangling references and
-        // ensure yields to the old stream are not silently lost.
         writeSignalContinuation.finish()
 
         var newCont: AsyncStream<Void>.Continuation!
@@ -41,17 +34,12 @@ extension WspulseClient {
 
         writeTask = Task { [weak self] in
             guard let self else { return }
-            // Iterate the captured stream directly to avoid an actor hop inside the
-            // loop (var properties require await to access from outside the actor).
             for await _ in newStream {
                 if Task.isCancelled { return }
                 await self.drainBuffer()
             }
         }
 
-        // If there are messages that were enqueued before this connection cycle
-        // completed (e.g. while connect() was still dialing), make sure the new
-        // write loop is kicked so it can begin draining the existing buffer.
         if !sendBuffer.isEmpty {
             writeSignalContinuation.yield()
         }
@@ -81,7 +69,6 @@ extension WspulseClient {
                             try await Task.sleep(for: pongWait)
                             throw WspulseError.connectionLost
                         }
-                        // First to complete wins; cancel the other.
                         if let result = try await group.next() {
                             _ = result
                         }
@@ -89,6 +76,7 @@ extension WspulseClient {
                     }
                 } catch {
                     if Task.isCancelled { return }
+                    options.logger.warning("wspulse/client: pong timeout, closing connection")
                     await self.handleTransportDrop(error: error)
                     return
                 }
@@ -101,10 +89,6 @@ extension WspulseClient {
     func handleTransportDrop(error: Error) async {
         guard !closed, !reconnecting else { return }
 
-        // Cancel current loops. We must NOT await them here because this
-        // method is called from within readTask or pingTask — awaiting the
-        // calling task would deadlock. Task cleanup is handled by close()
-        // and reconnected() instead.
         readTask?.cancel()
         writeTask?.cancel()
         pingTask?.cancel()
@@ -112,7 +96,7 @@ extension WspulseClient {
         options.onTransportDrop?(error)
 
         guard options.autoReconnect != nil else {
-            // No auto-reconnect: permanent disconnect.
+            options.logger.info("wspulse/client: transport dropped, no auto-reconnect")
             closed = true
             writeSignalContinuation.finish()
             await connection.close()
@@ -122,6 +106,7 @@ extension WspulseClient {
             return
         }
 
+        options.logger.info("wspulse/client: transport dropped, starting reconnect")
         reconnecting = true
         startReconnectLoop()
     }
@@ -140,6 +125,8 @@ extension WspulseClient {
                     max: reconnectOptions.maxDelay
                 )
 
+                options.logger.debug("wspulse/client: reconnect attempt=\(attempt) delay=\(delay)")
+
                 do {
                     try await Task.sleep(for: delay)
                 } catch {
@@ -157,6 +144,7 @@ extension WspulseClient {
                 if Task.isCancelled { return }
 
                 if succeeded {
+                    options.logger.info("wspulse/client: reconnected")
                     await self.reconnected()
                     return
                 }
@@ -195,6 +183,7 @@ extension WspulseClient {
 
     func reconnectExhausted() async {
         guard !closed else { return }
+        options.logger.warning("wspulse/client: max retries exhausted")
         closed = true
         reconnecting = false
         await connection.close()
@@ -209,7 +198,7 @@ extension WspulseClient {
         do {
             return try options.codec.decode(data)
         } catch {
-            // Skip malformed frames (matches client-kt behaviour).
+            options.logger.warning("wspulse/client: decode failed, frame dropped: \(error)")
             return nil
         }
     }
@@ -241,6 +230,7 @@ extension WspulseClient {
                 sendBuffer.removeFirst()
             } catch {
                 if closed { return }
+                options.logger.warning("wspulse/client: write failed: \(error)")
                 await handleTransportDrop(error: error)
                 return
             }

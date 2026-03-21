@@ -1,4 +1,5 @@
 import Foundation
+import os
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -78,7 +79,7 @@ public actor WspulseClient {
         do {
             try await connection.dial(url: url, headers: options.dialHeaders)
         } catch {
-            // Initial dial failure is always fatal — no callbacks, no Client.
+            options.logger.warning("wspulse/client: initial dial failed: \(error)")
             await connection.close()
             closed = true
             doneContinuation.yield()
@@ -86,6 +87,7 @@ public actor WspulseClient {
             throw error
         }
 
+        options.logger.debug("wspulse/client: connected url=\(self.url)")
         startReadLoop()
         startWriteLoop()
         startPingLoop()
@@ -138,6 +140,7 @@ public actor WspulseClient {
         reconnectTask = nil
         pingTask = nil
 
+        options.logger.info("wspulse/client: closing url=\(self.url)")
         options.onDisconnect?(nil)
         doneContinuation.yield()
         doneContinuation.finish()
