@@ -18,6 +18,10 @@ public enum WspulseError: Error, Sendable, Equatable {
     case encodingFailed
 }
 
+extension WspulseError: LocalizedError {
+    public var errorDescription: String? { description }
+}
+
 extension WspulseError: CustomStringConvertible {
     public var description: String {
         switch self {

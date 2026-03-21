@@ -106,7 +106,7 @@ extension WspulseClient {
             closed = true
             writeSignalContinuation.finish()
             await connection.close()
-            options.onDisconnect?(error)
+            options.onDisconnect?(WspulseError.connectionLost)
             doneContinuation.yield()
             doneContinuation.finish()
             return
