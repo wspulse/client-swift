@@ -114,6 +114,7 @@ extension WspulseClient {
 
         options.logger.info("wspulse/client: transport dropped, starting reconnect")
         reconnecting = true
+        await connection.close()
         startReconnectLoop()
     }
 
