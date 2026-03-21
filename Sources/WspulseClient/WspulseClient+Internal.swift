@@ -74,9 +74,15 @@ extension WspulseClient {
                         }
                         group.cancelAll()
                     }
+                } catch is CancellationError {
+                    return
                 } catch {
                     if Task.isCancelled { return }
-                    options.logger.warning("wspulse/client: pong timeout, closing connection")
+                    if let wspError = error as? WspulseError, wspError == .connectionLost {
+                        options.logger.warning("wspulse/client: pong timeout, closing connection")
+                    } else {
+                        options.logger.warning("wspulse/client: ping failed: \(error)")
+                    }
                     await self.handleTransportDrop(error: error)
                     return
                 }
@@ -186,6 +192,7 @@ extension WspulseClient {
         options.logger.warning("wspulse/client: max retries exhausted")
         closed = true
         reconnecting = false
+        writeSignalContinuation.finish()
         await connection.close()
         options.onDisconnect?(WspulseError.retriesExhausted)
         doneContinuation.yield()
@@ -228,6 +235,8 @@ extension WspulseClient {
                     group.cancelAll()
                 }
                 sendBuffer.removeFirst()
+            } catch is CancellationError {
+                return
             } catch {
                 if closed { return }
                 options.logger.warning("wspulse/client: write failed: \(error)")
