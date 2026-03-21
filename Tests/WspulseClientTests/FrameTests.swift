@@ -129,4 +129,88 @@ final class FrameTests: XCTestCase {
         XCTAssertEqual(frame.event, "msg")
         XCTAssertEqual(frame.payload, .object(["text": .string("hi")]))
     }
+
+    // MARK: - AnyJSON convenience accessor wrong-type returns nil
+
+    func testAnyJSONStringValueReturnsNilForNonString() {
+        XCTAssertNil(AnyJSON.number(42).stringValue)
+        XCTAssertNil(AnyJSON.bool(true).stringValue)
+        XCTAssertNil(AnyJSON.null.stringValue)
+        XCTAssertNil(AnyJSON.array([]).stringValue)
+        XCTAssertNil(AnyJSON.object([:]).stringValue)
+    }
+
+    func testAnyJSONNumberValueReturnsNilForNonNumber() {
+        XCTAssertNil(AnyJSON.string("hi").numberValue)
+        XCTAssertNil(AnyJSON.bool(true).numberValue)
+        XCTAssertNil(AnyJSON.null.numberValue)
+    }
+
+    func testAnyJSONBoolValueReturnsNilForNonBool() {
+        XCTAssertNil(AnyJSON.string("hi").boolValue)
+        XCTAssertNil(AnyJSON.number(1).boolValue)
+        XCTAssertNil(AnyJSON.null.boolValue)
+    }
+
+    func testAnyJSONArrayValueReturnsNilForNonArray() {
+        XCTAssertNil(AnyJSON.string("hi").arrayValue)
+        XCTAssertNil(AnyJSON.object([:]).arrayValue)
+        XCTAssertNil(AnyJSON.null.arrayValue)
+    }
+
+    func testAnyJSONObjectValueReturnsNilForNonObject() {
+        XCTAssertNil(AnyJSON.string("hi").objectValue)
+        XCTAssertNil(AnyJSON.array([]).objectValue)
+        XCTAssertNil(AnyJSON.null.objectValue)
+    }
+
+    func testAnyJSONIsNullReturnsFalseForNonNull() {
+        XCTAssertFalse(AnyJSON.string("hi").isNull)
+        XCTAssertFalse(AnyJSON.number(0).isNull)
+        XCTAssertFalse(AnyJSON.bool(false).isNull)
+        XCTAssertFalse(AnyJSON.array([]).isNull)
+        XCTAssertFalse(AnyJSON.object([:]).isNull)
+    }
+
+    // MARK: - Frame equatable
+
+    func testFrameEquality() {
+        let frame1 = Frame(id: "1", event: "msg", payload: .string("hi"))
+        let frame2 = Frame(id: "1", event: "msg", payload: .string("hi"))
+        XCTAssertEqual(frame1, frame2)
+    }
+
+    func testFrameInequality() {
+        let frame1 = Frame(id: "1", event: "msg", payload: .string("hi"))
+        let frame2 = Frame(id: "2", event: "msg", payload: .string("hi"))
+        XCTAssertNotEqual(frame1, frame2)
+    }
+
+    // MARK: - AnyJSON empty containers
+
+    func testAnyJSONEmptyArray() throws {
+        let json: AnyJSON = .array([])
+        let data = try encoder.encode(json)
+        let decoded = try decoder.decode(AnyJSON.self, from: data)
+        XCTAssertEqual(decoded, json)
+        XCTAssertEqual(decoded.arrayValue?.count, 0)
+    }
+
+    func testAnyJSONEmptyObject() throws {
+        let json: AnyJSON = .object([:])
+        let data = try encoder.encode(json)
+        let decoded = try decoder.decode(AnyJSON.self, from: data)
+        XCTAssertEqual(decoded, json)
+        XCTAssertEqual(decoded.objectValue?.count, 0)
+    }
+
+    // MARK: - Decodes from minimal wire JSON
+
+    func testDecodesEmptyWireJSON() throws {
+        let data = Data("{}".utf8)
+        let frame = try decoder.decode(Frame.self, from: data)
+        XCTAssertNil(frame.id)
+        XCTAssertNil(frame.event)
+        XCTAssertNil(frame.payload)
+    }
 }
