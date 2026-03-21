@@ -13,6 +13,9 @@ public enum WspulseError: Error, Sendable, Equatable {
 
     /// Server dropped the connection and auto-reconnect is off. Passed to `onDisconnect`.
     case connectionLost
+
+    /// Codec produced non-UTF8 data for a text-mode WebSocket frame.
+    case encodingFailed
 }
 
 extension WspulseError: CustomStringConvertible {
@@ -26,6 +29,8 @@ extension WspulseError: CustomStringConvertible {
             return "wspulse: retries exhausted"
         case .connectionLost:
             return "wspulse: connection lost"
+        case .encodingFailed:
+            return "wspulse: codec produced non-UTF8 data for text frame"
         }
     }
 }

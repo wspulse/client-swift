@@ -12,31 +12,31 @@ public actor WspulseClient {
     /// Yields once and finishes when the client is permanently disconnected.
     nonisolated public let done: AsyncStream<Void>
 
-    private let url: URL
-    private let options: WspulseClientOptions
-    private let connection: ConnectionActor
-    private let doneContinuation: AsyncStream<Void>.Continuation
+    let url: URL
+    let options: WspulseClientOptions
+    let connection: ConnectionActor
+    let doneContinuation: AsyncStream<Void>.Continuation
 
-    private var closed = false
-    private var started = false
+    var closed = false
+    var started = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
-    private var reconnecting = false
-    private var sendBuffer: [Data] = []
-    private let sendBufferMax = 256
+    var reconnecting = false
+    var sendBuffer: [Data] = []
+    let sendBufferMax = 256
 
     // Signal channel for the write loop: each element means "there's data to send".
     // Declared `var` so startWriteLoop() can replace the stream on each connection
     // cycle — AsyncStream supports only one active iterator.
-    private var writeSignal: AsyncStream<Void>
-    private var writeSignalContinuation: AsyncStream<Void>.Continuation
+    var writeSignal: AsyncStream<Void>
+    var writeSignalContinuation: AsyncStream<Void>.Continuation
 
     // Internal tasks
-    private var readTask: Task<Void, Never>?
-    private var writeTask: Task<Void, Never>?
-    private var reconnectTask: Task<Void, Never>?
-    private var pingTask: Task<Void, Never>?
+    var readTask: Task<Void, Never>?
+    var writeTask: Task<Void, Never>?
+    var reconnectTask: Task<Void, Never>?
+    var pingTask: Task<Void, Never>?
 
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
         self.url = url
@@ -141,257 +141,5 @@ public actor WspulseClient {
         options.onDisconnect?(nil)
         doneContinuation.yield()
         doneContinuation.finish()
-    }
-
-    // MARK: - Internal loops
-
-    private func startReadLoop() {
-        readTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                do {
-                    let data = try await self.connection.receive()
-                    if let frame = await self.decodeFrame(data) {
-                        await self.handleMessage(frame)
-                    }
-                } catch {
-                    if Task.isCancelled { return }
-                    await self.handleTransportDrop(error: error)
-                    return
-                }
-            }
-        }
-    }
-
-    private func startWriteLoop() {
-        // Create a fresh write-signal stream for this connection cycle so the new
-        // write task gets its own iterator. AsyncStream supports only one active
-        // iterator: if we reused the same stream, the old (cancelled) task's iterator
-        // and the new task's iterator would compete and yields would be lost.
-        //
-        // Finish the old continuation first to prevent dangling references and
-        // ensure yields to the old stream are not silently lost.
-        writeSignalContinuation.finish()
-
-        var newCont: AsyncStream<Void>.Continuation!
-        let newStream = AsyncStream<Void> { newCont = $0 }
-        writeSignal = newStream
-        writeSignalContinuation = newCont
-
-        writeTask = Task { [weak self] in
-            guard let self else { return }
-            // Iterate the captured stream directly to avoid an actor hop inside the
-            // loop (var properties require await to access from outside the actor).
-            for await _ in newStream {
-                if Task.isCancelled { return }
-                await self.drainBuffer()
-            }
-        }
-
-        // If there are messages that were enqueued before this connection cycle
-        // completed (e.g. while connect() was still dialing), make sure the new
-        // write loop is kicked so it can begin draining the existing buffer.
-        if !sendBuffer.isEmpty {
-            writeSignalContinuation.yield()
-        }
-    }
-
-    private func startPingLoop() {
-        let pingPeriod = options.heartbeat.pingPeriod
-        let pongWait = options.heartbeat.pongWait
-
-        pingTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: pingPeriod)
-                } catch {
-                    return
-                }
-                if Task.isCancelled { return }
-
-                do {
-                    try await withThrowingTaskGroup(of: Void.self) { group in
-                        group.addTask {
-                            try await self.connection.sendPing()
-                        }
-                        group.addTask {
-                            try await Task.sleep(for: pongWait)
-                            throw WspulseError.connectionLost
-                        }
-                        // First to complete wins; cancel the other.
-                        if let result = try await group.next() {
-                            _ = result
-                        }
-                        group.cancelAll()
-                    }
-                } catch {
-                    if Task.isCancelled { return }
-                    await self.handleTransportDrop(error: error)
-                    return
-                }
-            }
-        }
-    }
-
-    // MARK: - Reconnect
-
-    private func handleTransportDrop(error: Error) async {
-        guard !closed, !reconnecting else { return }
-
-        // Cancel current loops. We must NOT await them here because this
-        // method is called from within readTask or pingTask — awaiting the
-        // calling task would deadlock. Task cleanup is handled by close()
-        // and reconnected() instead.
-        readTask?.cancel()
-        writeTask?.cancel()
-        pingTask?.cancel()
-
-        options.onTransportDrop?(error)
-
-        guard options.autoReconnect != nil else {
-            // No auto-reconnect: permanent disconnect.
-            // onTransportDrop already delivered the raw error; onDisconnect
-            // receives the typed WspulseError (matches client-kt's
-            // ConnectionLostException wrapping pattern).
-            closed = true
-            await connection.close()
-            options.onDisconnect?(WspulseError.connectionLost)
-            doneContinuation.yield()
-            doneContinuation.finish()
-            return
-        }
-
-        reconnecting = true
-        startReconnectLoop()
-    }
-
-    private func startReconnectLoop() {
-        guard let reconnectOptions = options.autoReconnect else { return }
-
-        reconnectTask = Task { [weak self] in
-            guard let self else { return }
-            var attempt = 0
-
-            while !Task.isCancelled {
-                let delay = backoff(
-                    attempt: attempt,
-                    base: reconnectOptions.baseDelay,
-                    max: reconnectOptions.maxDelay
-                )
-
-                do {
-                    try await Task.sleep(for: delay)
-                } catch {
-                    return
-                }
-
-                if Task.isCancelled { return }
-
-                await self.notifyReconnect(attempt: attempt)
-
-                if Task.isCancelled { return }
-
-                let succeeded = await self.attemptReconnect()
-
-                if Task.isCancelled { return }
-
-                if succeeded {
-                    await self.reconnected()  // cancel old tasks, start new loops
-                    return
-                }
-
-                attempt += 1
-                if reconnectOptions.maxRetries > 0 && attempt >= reconnectOptions.maxRetries {
-                    await self.reconnectExhausted()
-                    return
-                }
-            }
-        }
-    }
-
-    /// Try to establish a new connection and verify it with a ping.
-    /// Returns `true` on success, `false` on failure.
-    private func attemptReconnect() async -> Bool {
-        await connection.close()
-        do {
-            try await connection.dial(url: url, headers: options.dialHeaders)
-            try await connection.sendPing()
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    private func reconnected() {
-        // Old tasks were already cancelled by handleTransportDrop. We cannot
-        // await them here because writeTask blocks on AsyncStream iteration
-        // which does not respond to Task cancellation — awaiting would
-        // deadlock. The cancelled tasks will exit naturally once their loops
-        // detect cancellation or the stream finishes.
-        reconnecting = false
-        startReadLoop()
-        startWriteLoop()
-        startPingLoop()
-        // Flush any buffered messages
-        writeSignalContinuation.yield()
-    }
-
-    private func notifyReconnect(attempt: Int) {
-        options.onReconnect?(attempt)
-    }
-
-    private func reconnectExhausted() async {
-        guard !closed else { return }
-        closed = true
-        reconnecting = false
-        await connection.close()
-        options.onDisconnect?(WspulseError.retriesExhausted)
-        doneContinuation.yield()
-        doneContinuation.finish()
-    }
-
-    // MARK: - Helpers
-
-    private func decodeFrame(_ data: Data) -> Frame? {
-        do {
-            return try options.codec.decode(data)
-        } catch {
-            // Skip malformed frames (matches client-kt behaviour).
-            return nil
-        }
-    }
-
-    private func handleMessage(_ frame: Frame) {
-        options.onMessage?(frame)
-    }
-
-    private func drainBuffer() async {
-        let writeWait = options.writeWait
-        while !sendBuffer.isEmpty {
-            let data = sendBuffer.removeFirst()
-            do {
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    group.addTask {
-                        try await self.connection.send(data, frameType: self.options.codec.frameType)
-                    }
-                    group.addTask {
-                        try await Task.sleep(for: writeWait)
-                        throw WspulseError.connectionLost
-                    }
-                    if let result = try await group.next() {
-                        _ = result
-                    }
-                    group.cancelAll()
-                }
-            } catch {
-                if closed { return }
-                // Re-insert at front so the frame is retried after reconnect,
-                // then trigger the transport-drop flow immediately.
-                sendBuffer.insert(data, at: 0)
-                await handleTransportDrop(error: error)
-                return
-            }
-        }
     }
 }

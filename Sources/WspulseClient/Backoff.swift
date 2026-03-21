@@ -15,7 +15,8 @@ import Foundation
 ///   - max: The maximum backoff delay cap.
 /// - Returns: The jittered backoff duration.
 func backoff(attempt: Int, base: Duration, max: Duration) -> Duration {
-    let shift = min(attempt, 62)
+    let clamped = attempt < 0 ? 0 : attempt
+    let shift = min(clamped, 62)
     let multiplier = Double(1 << shift)
     let baseSeconds = Double(base.components.seconds) + Double(base.components.attoseconds) * 1e-18
     let maxSeconds = Double(max.components.seconds) + Double(max.components.attoseconds) * 1e-18
