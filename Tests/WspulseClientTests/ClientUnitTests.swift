@@ -80,20 +80,27 @@ final class ClientUnitTests: XCTestCase {
 
     // MARK: - Send buffer full
 
-    func testSendBufferFullWhenBufferExhausted() async throws {
-        // Cannot connect, but we can test the buffer logic by using @testable
-        // to access internal state. We'll create a client and manipulate its
-        // started state to test send logic.
+    func testSendBufferFullThrowsWhenExhausted() async throws {
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!
         )
-        // Use internal access to fill the buffer without connecting
-        // The sendBufferMax is 256
+        // Fill the buffer to capacity (256)
         for idx in 0..<256 {
             await client.appendToBuffer(data: Data("frame-\(idx)".utf8))
         }
         let count = await client.bufferCount
         XCTAssertEqual(count, 256)
+
+        // Mark as started so send() doesn't throw connectionClosed
+        await client.setStarted()
+
+        // The 257th send must throw sendBufferFull
+        do {
+            try await client.send(Frame(event: "overflow"))
+            XCTFail("Expected WspulseError.sendBufferFull")
+        } catch let error as WspulseError {
+            XCTAssertEqual(error, .sendBufferFull)
+        }
     }
 
     // MARK: - Done stream finishes after close
@@ -398,5 +405,9 @@ extension WspulseClient {
 
     var bufferCount: Int {
         sendBuffer.count
+    }
+
+    func setStarted() {
+        started = true
     }
 }

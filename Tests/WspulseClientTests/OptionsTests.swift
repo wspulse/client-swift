@@ -53,59 +53,12 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(opts.dialHeaders["Authorization"], "Bearer token")
     }
 
-    // MARK: - AutoReconnectOptions preconditions
-
-    func testAutoReconnectBaseDelayMustBePositive() {
-        expectPreconditionFailure {
-            _ = AutoReconnectOptions(baseDelay: .zero)
-        }
-    }
-
-    func testAutoReconnectMaxDelayMustBeGreaterThanOrEqualToBaseDelay() {
-        expectPreconditionFailure {
-            _ = AutoReconnectOptions(baseDelay: .seconds(10), maxDelay: .seconds(5))
-        }
-    }
-
-    func testAutoReconnectNegativeBaseDelay() {
-        expectPreconditionFailure {
-            _ = AutoReconnectOptions(baseDelay: .seconds(-1))
-        }
-    }
-
-    // MARK: - HeartbeatOptions preconditions
-
-    func testHeartbeatPingPeriodMustBePositive() {
-        expectPreconditionFailure {
-            _ = HeartbeatOptions(pingPeriod: .zero)
-        }
-    }
-
-    func testHeartbeatPongWaitMustBeGreaterThanPingPeriod() {
-        expectPreconditionFailure {
-            _ = HeartbeatOptions(pingPeriod: .seconds(10), pongWait: .seconds(10))
-        }
-    }
-
-    func testHeartbeatPongWaitLessThanPingPeriod() {
-        expectPreconditionFailure {
-            _ = HeartbeatOptions(pingPeriod: .seconds(10), pongWait: .seconds(5))
-        }
-    }
-
-    // MARK: - WspulseClientOptions preconditions
-
-    func testMaxMessageSizeMustBePositive() {
-        expectPreconditionFailure {
-            _ = WspulseClientOptions(maxMessageSize: 0)
-        }
-    }
-
-    func testWriteWaitMustBePositive() {
-        expectPreconditionFailure {
-            _ = WspulseClientOptions(writeWait: .zero)
-        }
-    }
+    // MARK: - Precondition tests (skipped)
+    //
+    // Precondition failures terminate the process and cannot be caught in Swift.
+    // These tests are skipped in-process; valid-boundary tests below verify the
+    // non-crash paths. In a CI environment with process-isolation support
+    // (e.g. XCTest crash testing plans), these would verify the trap.
 
     // MARK: - Valid boundary values do not crash
 
@@ -172,20 +125,4 @@ final class OptionsTests: XCTestCase {
         wait(for: [expectation], timeout: 1)
     }
 
-    // MARK: - Helpers
-
-    /// Verify that a block triggers a precondition failure.
-    /// Note: `precondition` in `-Onone` builds (debug/test) traps the process.
-    /// We cannot catch traps in-process, so this test simply verifies the
-    /// configuration is constructed — if the precondition fires, the test
-    /// crashes (which is the correct behaviour for programmer errors).
-    /// For CI safety, we skip precondition crash tests and rely on expected
-    /// valid-boundary tests above.
-    private func expectPreconditionFailure(block: () -> Void) {
-        // Precondition failures terminate the process and cannot be caught
-        // in Swift. We document that these would crash; the valid-boundary
-        // tests above verify the non-crash paths.
-        // In a real test harness with process isolation (e.g. XCTest plans
-        // with crash testing), these would verify the trap.
-    }
 }
