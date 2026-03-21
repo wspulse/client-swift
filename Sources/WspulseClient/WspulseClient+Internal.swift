@@ -247,6 +247,11 @@ extension WspulseClient {
                 sendBuffer.removeFirst()
             } catch is CancellationError {
                 return
+            } catch let error as WspulseError where error == .encodingFailed {
+                // Encoding error is not a transport issue — drop the frame
+                // and continue draining. Reconnecting would fail identically.
+                sendBuffer.removeFirst()
+                options.logger.warning("wspulse/client: frame dropped (encoding failed)")
             } catch {
                 if closed { return }
                 options.logger.warning("wspulse/client: write failed: \(error)")
