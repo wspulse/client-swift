@@ -141,7 +141,13 @@ public actor WspulseClient {
         pingTask = nil
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
-        options.onDisconnect?(nil)
+
+        // Only fire onDisconnect if the client was previously connected.
+        // Per the behaviour contract, no callbacks fire if connect() was
+        // never called or if the initial dial failed.
+        if started {
+            options.onDisconnect?(nil)
+        }
         doneContinuation.yield()
         doneContinuation.finish()
     }
