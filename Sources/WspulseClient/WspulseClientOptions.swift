@@ -69,10 +69,9 @@ public struct WspulseClientOptions: Sendable {
     /// Wire-format codec for encoding/decoding Frames.
     public var codec: any WspulseCodec
 
-    /// Logger for internal diagnostics. Defaults to disabled (no output).
+    /// Logger for internal diagnostics. Enabled by default.
     ///
-    /// Pass `Logger(subsystem: "com.wspulse.client", category: "WspulseClient")`
-    /// to enable logging to the unified logging system.
+    /// Pass `Logger(.disabled)` to suppress all log output.
     public var logger: os.Logger
 
     public init(
@@ -86,7 +85,7 @@ public struct WspulseClientOptions: Sendable {
         maxMessageSize: Int = 1_048_576,
         dialHeaders: [String: String] = [:],
         codec: any WspulseCodec = JSONCodec(),
-        logger: os.Logger = Logger(.disabled)
+        logger: os.Logger = Logger(subsystem: "com.wspulse", category: "WspulseClient")
     ) {
         precondition(maxMessageSize > 0, "wspulse: maxMessageSize must be positive")
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
