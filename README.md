@@ -129,6 +129,56 @@ class ChatViewModel: ObservableObject {
 
 ---
 
+## Frame Format
+
+The default `JSONCodec` encodes frames as JSON text frames:
+
+```json
+{
+  "id": "msg-001",
+  "event": "chat.message",
+  "payload": { "text": "hello" }
+}
+```
+
+The `event` field is the routing key on the server side. Set `frame.event` to match the handler registered with `r.On("chat.message", ...)` on the server. The `payload` field carries arbitrary data expressed as `AnyJSON`.
+
+```swift
+// Send a typed frame — server routes by "event"
+try await client.send(Frame(
+    event: "chat.message",
+    payload: .object(["text": .string("hello world")])
+))
+
+// Receive typed frames in onMessage
+WspulseClientOptions(
+    onMessage: { frame in
+        switch frame.event {
+        case "chat.message": handleMessage(frame)
+        case "chat.ack":     handleAck(frame)
+        default: break
+        }
+    }
+)
+```
+
+To use a custom wire format, implement `WspulseCodec`:
+
+```swift
+struct ProtobufCodec: WspulseCodec {
+    var frameType: FrameType { .binary }
+    func encode(_ frame: Frame) throws -> Data { /* serialize */ }
+    func decode(_ data: Data) throws -> Frame  { /* deserialize */ }
+}
+
+let client = WspulseClient(
+    url: url,
+    options: WspulseClientOptions(codec: ProtobufCodec())
+)
+```
+
+---
+
 ## API Reference
 
 ### `WspulseClient` (actor)
@@ -190,6 +240,27 @@ Default: `JSONCodec` (JSON text frames).
 | `maxMessageSize`  | `Int`                        | 1 MiB       | Max inbound message size.                   |
 | `dialHeaders`     | `[String: String]`           | `[:]`       | Extra HTTP headers for WebSocket upgrade.   |
 | `codec`           | `any WspulseCodec`           | `JSONCodec` | Wire-format codec.                          |
+| `logger`          | `os.Logger`                  | enabled     | Logger for internal diagnostics.            |
+
+### Logging
+
+The client logs internal diagnostics via Apple's [unified logging system](https://developer.apple.com/documentation/os/logging) (`os.Logger`). Enabled by default with subsystem `com.wspulse`.
+
+**Replace the logger** with your own:
+
+```swift
+let options = WspulseClientOptions(
+    logger: Logger(subsystem: "com.myapp", category: "network")
+)
+```
+
+**Disable logging:**
+
+```swift
+let options = WspulseClientOptions(
+    logger: Logger(.disabled)
+)
+```
 
 ### `AutoReconnectOptions`
 
@@ -208,6 +279,21 @@ Default: `JSONCodec` (JSON text frames).
 
 ---
 
+## Features
+
+- **Auto-reconnect** — exponential backoff with configurable max retries, base delay, and max delay. Equal jitter formula: delay ∈ `[half, full]` where full = min(base × 2^attempt, max).
+- **Transport drop callback** — `onTransportDrop` fires on every transport death, even when auto-reconnect follows. Useful for metrics and logging.
+- **Permanent disconnect callback** — `onDisconnect` fires exactly once when the client is truly done (`close()` called, retries exhausted, or connection lost without auto-reconnect).
+- **Heartbeat** — Client-side Ping/Pong keeps the connection alive and detects silently-dead servers.
+- **Max message size** — Inbound messages exceeding `maxMessageSize` bytes drop the connection.
+- **Backpressure** — bounded 256-frame send buffer; throws `WspulseError.sendBufferFull` when full.
+- **Actor-isolated send** — `send()` enqueues only and returns immediately, safe to call from any `Task` without holding locks.
+- **`done` AsyncStream** — yields once then finishes on permanent disconnect. `for await _ in client.done {}` suspends until the client is truly closed.
+- **Idempotent close** — `close()` is safe to call multiple times concurrently.
+- **Zero dependencies** — built on `URLSessionWebSocketTask`; no third-party libraries.
+
+---
+
 ## Backoff Formula
 
 ```
@@ -217,6 +303,30 @@ result = delay * jitter
 ```
 
 Matches `client-go` exactly. Any deviation is a bug.
+
+---
+
+## Development
+
+```bash
+make fmt              # auto-format with SwiftLint --fix
+make check            # lint + unit tests (pre-commit gate)
+make test             # unit tests only (no testserver required)
+make test-integration # integration tests against Go testserver
+make clean            # remove build artifacts
+```
+
+---
+
+## Related Modules
+
+| Module                                                    | Description                            |
+| --------------------------------------------------------- | -------------------------------------- |
+| [wspulse/core](https://github.com/wspulse/core)           | Shared types, codecs, and event router |
+| [wspulse/server](https://github.com/wspulse/server)       | WebSocket server                       |
+| [wspulse/client-go](https://github.com/wspulse/client-go) | Go client (reference implementation)   |
+| [wspulse/client-ts](https://github.com/wspulse/client-ts) | TypeScript client                      |
+| [wspulse/client-kt](https://github.com/wspulse/client-kt) | Kotlin client                          |
 
 ---
 

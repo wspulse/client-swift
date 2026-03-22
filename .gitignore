@@ -1,0 +1,35 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/*
+!.idea/codeStyles
+!.idea/runConfigurations
+.vscode/settings.json
+
+# Local docs (never commit)
+doc/local/
+
+# Go workspace (managed by parent go.work)
+go.work
+go.work.sum
+
+tmp/
+*.local.*

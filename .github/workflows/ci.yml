@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches:
+      [main, develop, "feat/**", "feature/**", "refactor/**", "bugfix/**", "fix/**", "chore/**"]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/instructions/**"
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/instructions/**"
+
+jobs:
+  check:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Lint
+        run: swiftlint lint --strict
+
+      - name: Build
+        run: swift build
+
+      - name: Run unit tests
+        run: swift test --filter WspulseClientTests --skip ClientIntegrationTests
+
+  # Integration tests require Go and the wspulse/core + wspulse/server repos
+  # as siblings. Only runs on pushes to main or PRs targeting main/develop.
+  test-integration:
+    runs-on: macos-15
+    timeout-minutes: 15
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
+    needs: [check]
+    steps:
+      - name: Check out client-swift
+        uses: actions/checkout@v6
+        with:
+          path: client-swift
+
+      - name: Check out core
+        uses: actions/checkout@v6
+        with:
+          repository: wspulse/core
+          path: core
+
+      - name: Check out server
+        uses: actions/checkout@v6
+        with:
+          repository: wspulse/server
+          path: server
+
+      - name: Check out testserver
+        uses: actions/checkout@v6
+        with:
+          repository: wspulse/testserver
+          path: testserver
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+          cache-dependency-path: testserver/go.sum
+
+      - name: Set up Go workspace
+        run: go work init ./testserver ./core ./server
+
+      - name: Run integration tests
+        working-directory: client-swift
+        run: swift test --filter ClientIntegrationTests

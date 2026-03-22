@@ -1,0 +1,13 @@
+name: On PR Opened
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  setup:
+    uses: wspulse/.github/.github/workflows/on-pr-opened.yml@main
+    permissions:
+      issues: write
+      pull-requests: write
+
