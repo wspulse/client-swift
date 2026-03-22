@@ -102,5 +102,5 @@ make clean      # swift package clean
   `Date` / `Issue or Learning` / `Root Cause` / `Prevention Rule`.
   Append only — never overwrite existing entries.
 
-[contract-if]: https://github.com/wspulse/.github/blob/main/doc/contracts/client-interface.md
-[contract-bh]: https://github.com/wspulse/.github/blob/main/doc/contracts/client-behaviour.md
+[contract-if]: https://github.com/wspulse/.github/blob/main/doc/contracts/client/interface.md
+[contract-bh]: https://github.com/wspulse/.github/blob/main/doc/contracts/client/behaviour.md
