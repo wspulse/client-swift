@@ -25,7 +25,7 @@ public struct AutoReconnectOptions: Sendable {
         precondition(maxRetries >= 0, "wspulse: autoReconnect.maxRetries must be non-negative")
         precondition(baseDelay > .zero, "wspulse: autoReconnect.baseDelay must be positive")
         precondition(baseDelay <= maxBaseDelay, "wspulse: autoReconnect.baseDelay exceeds maximum (1m)")
-        precondition(maxDelay >= baseDelay, "wspulse: autoReconnect.maxDelay must be >= baseDelay")
+        precondition(maxDelay >= baseDelay, "wspulse: autoReconnect.maxDelay must be >= autoReconnect.baseDelay")
         precondition(maxDelay <= maxMaxDelay, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
         if maxRetries > 0 {
             precondition(maxRetries <= maxMaxRetries, "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
@@ -81,7 +81,7 @@ public struct WspulseClientOptions: Sendable {
     /// Deadline for a single write operation.
     public var writeWait: Duration
 
-    /// Max inbound message size in bytes. Connection closed if exceeded.
+    /// Max inbound message size in bytes. `0` disables the limit. Connection closed if exceeded.
     public var maxMessageSize: Int
 
     /// Extra HTTP headers sent during WebSocket upgrade.
