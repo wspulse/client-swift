@@ -1,20 +1,35 @@
 import Foundation
 import os
 
+// Configuration upper bounds.
+private let maxPingPeriod: Duration = .seconds(60)
+private let maxPongWait: Duration = .seconds(120)
+private let maxWriteWait: Duration = .seconds(30)
+private let maxMsgSizeBytes = 64 * 1_048_576
+private let maxBaseDelay: Duration = .seconds(60)
+private let maxDelayLimit: Duration = .seconds(300)
+private let maxRetriesLimit = 32
+
 /// Configuration for automatic reconnection with exponential backoff.
 public struct AutoReconnectOptions: Sendable {
-    /// Maximum number of retries. Values ≤ 0 mean unlimited.
+    /// Maximum number of retries. `0` means unlimited. Range: 0...32.
     public var maxRetries: Int
 
-    /// Initial backoff delay before the first retry.
+    /// Initial backoff delay before the first retry. Range: (0s, 60s].
     public var baseDelay: Duration
 
-    /// Maximum backoff delay cap.
+    /// Maximum backoff delay cap. Must be >= `baseDelay`. Range: [baseDelay, 5m].
     public var maxDelay: Duration
 
     public init(maxRetries: Int = 0, baseDelay: Duration = .seconds(1), maxDelay: Duration = .seconds(30)) {
-        precondition(baseDelay > .zero, "wspulse: baseDelay must be positive")
-        precondition(maxDelay >= baseDelay, "wspulse: maxDelay must be >= baseDelay")
+        precondition(maxRetries >= 0, "wspulse: autoReconnect.maxRetries must be non-negative")
+        precondition(baseDelay > .zero, "wspulse: autoReconnect.baseDelay must be positive")
+        precondition(baseDelay <= maxBaseDelay, "wspulse: autoReconnect.baseDelay exceeds maximum (1m)")
+        precondition(maxDelay >= baseDelay, "wspulse: autoReconnect.maxDelay must be >= autoReconnect.baseDelay")
+        precondition(maxDelay <= maxDelayLimit, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
+        if maxRetries > 0 {
+            precondition(maxRetries <= maxRetriesLimit, "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
+        }
         self.maxRetries = maxRetries
         self.baseDelay = baseDelay
         self.maxDelay = maxDelay
@@ -23,15 +38,21 @@ public struct AutoReconnectOptions: Sendable {
 
 /// Configuration for client-side heartbeat (Ping/Pong).
 public struct HeartbeatOptions: Sendable {
-    /// Interval between Ping frames sent by the client.
+    /// Interval between Ping frames sent by the client. Range: (0s, 60s].
     public var pingPeriod: Duration
 
-    /// Maximum time to wait for a Pong reply before closing the connection.
+    /// Maximum time to wait for a Pong reply before closing. Range: (0s, 2m]. Must be > `pingPeriod`.
     public var pongWait: Duration
 
     public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
-        precondition(pingPeriod > .zero, "wspulse: pingPeriod must be positive")
-        precondition(pongWait > pingPeriod, "wspulse: pongWait must be greater than pingPeriod")
+        precondition(pingPeriod > .zero, "wspulse: heartbeat.pingPeriod must be positive")
+        precondition(pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
+        precondition(pongWait > .zero, "wspulse: heartbeat.pongWait must be positive")
+        precondition(pongWait <= maxPongWait, "wspulse: heartbeat.pongWait exceeds maximum (2m)")
+        precondition(
+            pongWait > pingPeriod,
+            "wspulse: heartbeat.pingPeriod must be strictly less than heartbeat.pongWait"
+        )
         self.pingPeriod = pingPeriod
         self.pongWait = pongWait
     }
@@ -60,7 +81,7 @@ public struct WspulseClientOptions: Sendable {
     /// Deadline for a single write operation.
     public var writeWait: Duration
 
-    /// Max inbound message size in bytes. Connection closed if exceeded.
+    /// Max inbound message size in bytes. `0` disables the limit. Connection closed if exceeded.
     public var maxMessageSize: Int
 
     /// Extra HTTP headers sent during WebSocket upgrade.
@@ -85,8 +106,10 @@ public struct WspulseClientOptions: Sendable {
         codec: any WspulseCodec = JSONCodec(),
         logger: os.Logger = Logger(subsystem: "com.wspulse", category: "WspulseClient")
     ) {
-        precondition(maxMessageSize > 0, "wspulse: maxMessageSize must be positive")
+        precondition(maxMessageSize >= 0, "wspulse: maxMessageSize must be non-negative")
+        precondition(maxMessageSize <= maxMsgSizeBytes, "wspulse: maxMessageSize exceeds maximum (64 MiB)")
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
+        precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
         self.onReconnect = onReconnect

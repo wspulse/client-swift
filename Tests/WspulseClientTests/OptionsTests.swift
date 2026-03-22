@@ -125,4 +125,33 @@ final class OptionsTests: XCTestCase {
         wait(for: [expectation], timeout: 1)
     }
 
+    // MARK: - Max boundary values (should NOT crash)
+
+    func testHeartbeatMaxBoundaryValues() {
+        let heartbeat = HeartbeatOptions(pingPeriod: .seconds(60), pongWait: .seconds(120))
+        XCTAssertEqual(heartbeat.pingPeriod, .seconds(60))
+        XCTAssertEqual(heartbeat.pongWait, .seconds(120))
+    }
+
+    func testAutoReconnectMaxBoundaryValues() {
+        let reconnect = AutoReconnectOptions(maxRetries: 32, baseDelay: .seconds(60), maxDelay: .seconds(300))
+        XCTAssertEqual(reconnect.maxRetries, 32)
+        XCTAssertEqual(reconnect.baseDelay, .seconds(60))
+        XCTAssertEqual(reconnect.maxDelay, .seconds(300))
+    }
+
+    func testWriteWaitMaxBoundary() {
+        let opts = WspulseClientOptions(writeWait: .seconds(30))
+        XCTAssertEqual(opts.writeWait, .seconds(30))
+    }
+
+    func testMaxMessageSizeZeroIsValid() {
+        let opts = WspulseClientOptions(maxMessageSize: 0)
+        XCTAssertEqual(opts.maxMessageSize, 0)
+    }
+
+    func testMaxMessageSizeMaxBoundary() {
+        let opts = WspulseClientOptions(maxMessageSize: 64 * 1_048_576)
+        XCTAssertEqual(opts.maxMessageSize, 64 * 1_048_576)
+    }
 }
