@@ -185,7 +185,15 @@ extension WspulseClient {
         }
     }
 
-    private func reconnected() {
+    private func reconnected() async {
+        // Finish the old write stream so the old writeTask can exit its for-await loop,
+        // then await all old cancelled tasks before creating replacements.
+        // This guarantees close() only needs to track the current set of tasks.
+        writeSignalContinuation.finish()
+        await readTask?.value
+        await writeTask?.value
+        await pingTask?.value
+
         reconnecting = false
         startReadLoop()
         startWriteLoop()
