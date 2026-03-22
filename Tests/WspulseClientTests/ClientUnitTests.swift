@@ -234,21 +234,19 @@ final class ClientUnitTests: XCTestCase {
         XCTAssertEqual(state.count, 1)
     }
 
-    // MARK: - drainBuffer drops frames with encoding failure
+    // MARK: - decodeFrame returns nil on codec failure
 
-    func testDrainBufferDropsFrameOnEncodingFailure() async throws {
-        // Use a codec that fails on encode for specific data, to verify
-        // drainBuffer continues processing after an encoding failure.
+    func testDecodeFrameReturnsNilOnCodecFailure() async throws {
+        // Verify decodeFrame returns nil when the codec fails to decode.
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!,
             options: WspulseClientOptions(codec: FailingCodec())
         )
-        // Verify decodeFrame works correctly with the failing codec.
         let result = await client.decodeFrame(Data("test".utf8))
         XCTAssertNil(result, "FailingCodec should cause decodeFrame to return nil")
     }
 
-    // MARK: - send buffer is cleared on close
+    // MARK: - send buffer is empty after init
 
     func testSendBufferIsEmptyAfterInit() async {
         let client = WspulseClient(
