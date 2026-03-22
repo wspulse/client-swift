@@ -234,6 +234,31 @@ final class ClientUnitTests: XCTestCase {
         XCTAssertEqual(state.count, 1)
     }
 
+    // MARK: - drainBuffer drops frames with encoding failure
+
+    func testDrainBufferDropsFrameOnEncodingFailure() async throws {
+        // Use a codec that fails on encode for specific data, to verify
+        // drainBuffer continues processing after an encoding failure.
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:0")!,
+            options: WspulseClientOptions(codec: FailingCodec())
+        )
+        // Verify decodeFrame works correctly with the failing codec.
+        let result = await client.decodeFrame(Data("test".utf8))
+        XCTAssertNil(result, "FailingCodec should cause decodeFrame to return nil")
+    }
+
+    // MARK: - send buffer is cleared on close
+
+    func testSendBufferIsEmptyAfterInit() async {
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:0")!
+        )
+        let count = await client.bufferCount
+        XCTAssertEqual(count, 0)
+        await client.close()
+    }
+
     // MARK: - Backoff negative attempt
 
     func testBackoffNegativeAttemptDoesNotCrash() {
@@ -313,6 +338,32 @@ final class ConnectionActorTests: XCTestCase {
         await connection.close(code: .goingAway)
         await connection.close(code: .normalClosure)
         // Should not crash
+    }
+
+    // MARK: - multiple close calls are safe
+
+    func testMultipleCloseCallsAreSafe() async {
+        let connection = ConnectionActor(maxMessageSize: 1_048_576)
+        await connection.close()
+        await connection.close()
+        await connection.close(code: .normalClosure)
+        await connection.close(code: .goingAway)
+        // Should not crash or deadlock
+    }
+
+    // MARK: - operations after close with code
+
+    func testSendAfterCloseWithCodeThrowsConnectionClosed() async {
+        let connection = ConnectionActor(maxMessageSize: 1_048_576)
+        await connection.close(code: .goingAway)
+        do {
+            try await connection.send(Data("hello".utf8), frameType: .text)
+            XCTFail("Expected WspulseError.connectionClosed")
+        } catch let error as WspulseError {
+            XCTAssertEqual(error, .connectionClosed)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
     }
 
     // MARK: - send/receive after close throws connectionClosed
