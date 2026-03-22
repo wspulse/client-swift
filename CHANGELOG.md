@@ -4,6 +4,30 @@
 
 ---
 
+## [0.2.0] - 2026-03-22
+
+### Fixed
+
+- `reconnected()` orphaned old read/write/ping tasks by overwriting references
+  without awaiting them. Now awaits old tasks before creating replacements.
+
+### Changed
+
+- **BREAKING**: negative `maxRetries` now triggers precondition failure instead
+  of being treated as unlimited. Use `0` for unlimited retries.
+- Validation error messages use fully-qualified field names (`heartbeat.pongWait`,
+  `autoReconnect.baseDelay`) to match the config validation contract.
+- Added upper-bound validation for all configurable options.
+- Doc comments on option properties now include allowed ranges.
+
+### Added
+
+- Unit tests: codec failure decoding, ConnectionActor multiple close,
+  send-after-close-with-code, send buffer initial state.
+- DocC catalog and SPI configuration.
+
+---
+
 ## [0.1.0] - 2026-03-22
 
 ### Added
@@ -26,5 +50,6 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/wspulse/client-swift/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wspulse/client-swift/releases/tag/v0.1.0
