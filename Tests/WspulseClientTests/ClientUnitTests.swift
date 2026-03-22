@@ -236,7 +236,7 @@ final class ClientUnitTests: XCTestCase {
 
     // MARK: - decodeFrame returns nil on codec failure
 
-    func testDecodeFrameReturnsNilOnCodecFailure() async throws {
+    func testDecodeFrameReturnsNilOnCodecFailure() async {
         // Verify decodeFrame returns nil when the codec fails to decode.
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!,
