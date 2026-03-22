@@ -49,7 +49,10 @@ public struct HeartbeatOptions: Sendable {
         precondition(pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
         precondition(pongWait > .zero, "wspulse: heartbeat.pongWait must be positive")
         precondition(pongWait <= maxPongWait, "wspulse: heartbeat.pongWait exceeds maximum (2m)")
-        precondition(pongWait > pingPeriod, "wspulse: heartbeat.pingPeriod must be strictly less than pongWait")
+        precondition(
+            pongWait > pingPeriod,
+            "wspulse: heartbeat.pingPeriod must be strictly less than heartbeat.pongWait"
+        )
         self.pingPeriod = pingPeriod
         self.pongWait = pongWait
     }
