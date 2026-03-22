@@ -12,13 +12,13 @@ private let maxMaxRetries = 32
 
 /// Configuration for automatic reconnection with exponential backoff.
 public struct AutoReconnectOptions: Sendable {
-    /// Maximum number of retries. 0 means unlimited. Must be non-negative.
+    /// Maximum number of retries. `0` means unlimited. Range: 0...32.
     public var maxRetries: Int
 
-    /// Initial backoff delay before the first retry.
+    /// Initial backoff delay before the first retry. Range: (0s, 60s].
     public var baseDelay: Duration
 
-    /// Maximum backoff delay cap.
+    /// Maximum backoff delay cap. Must be >= `baseDelay`. Range: [baseDelay, 5m].
     public var maxDelay: Duration
 
     public init(maxRetries: Int = 0, baseDelay: Duration = .seconds(1), maxDelay: Duration = .seconds(30)) {
@@ -38,10 +38,10 @@ public struct AutoReconnectOptions: Sendable {
 
 /// Configuration for client-side heartbeat (Ping/Pong).
 public struct HeartbeatOptions: Sendable {
-    /// Interval between Ping frames sent by the client.
+    /// Interval between Ping frames sent by the client. Range: (0s, 60s].
     public var pingPeriod: Duration
 
-    /// Maximum time to wait for a Pong reply before closing the connection.
+    /// Maximum time to wait for a Pong reply before closing. Range: (0s, 2m]. Must be > `pingPeriod`.
     public var pongWait: Duration
 
     public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
