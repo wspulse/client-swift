@@ -7,8 +7,8 @@ private let maxPongWait: Duration = .seconds(120)
 private let maxWriteWait: Duration = .seconds(30)
 private let maxMsgSizeBytes = 64 * 1_048_576
 private let maxBaseDelay: Duration = .seconds(60)
-private let maxMaxDelay: Duration = .seconds(300)
-private let maxMaxRetries = 32
+private let maxDelayLimit: Duration = .seconds(300)
+private let maxRetriesLimit = 32
 
 /// Configuration for automatic reconnection with exponential backoff.
 public struct AutoReconnectOptions: Sendable {
@@ -26,9 +26,9 @@ public struct AutoReconnectOptions: Sendable {
         precondition(baseDelay > .zero, "wspulse: autoReconnect.baseDelay must be positive")
         precondition(baseDelay <= maxBaseDelay, "wspulse: autoReconnect.baseDelay exceeds maximum (1m)")
         precondition(maxDelay >= baseDelay, "wspulse: autoReconnect.maxDelay must be >= autoReconnect.baseDelay")
-        precondition(maxDelay <= maxMaxDelay, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
+        precondition(maxDelay <= maxDelayLimit, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
         if maxRetries > 0 {
-            precondition(maxRetries <= maxMaxRetries, "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
+            precondition(maxRetries <= maxRetriesLimit, "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
         }
         self.maxRetries = maxRetries
         self.baseDelay = baseDelay
