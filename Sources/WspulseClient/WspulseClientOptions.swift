@@ -66,8 +66,9 @@ public struct WspulseClientOptions: Sendable {
     /// Called on permanent disconnect. `nil` error = clean close.
     public var onDisconnect: (@Sendable (Error?) -> Void)?
 
-    /// Called at each reconnect attempt. `attempt` is 0-based.
-    public var onReconnect: (@Sendable (Int) -> Void)?
+    /// Called after a successful reconnect when the new transport is ready.
+    /// Does not fire on the initial connection.
+    public var onTransportRestore: (@Sendable () -> Void)?
 
     /// Called each time the underlying transport drops (before any reconnect).
     public var onTransportDrop: (@Sendable (Error) -> Void)?
@@ -96,7 +97,7 @@ public struct WspulseClientOptions: Sendable {
     public init(
         onMessage: (@Sendable (Frame) -> Void)? = nil,
         onDisconnect: (@Sendable (Error?) -> Void)? = nil,
-        onReconnect: (@Sendable (Int) -> Void)? = nil,
+        onTransportRestore: (@Sendable () -> Void)? = nil,
         onTransportDrop: (@Sendable (Error) -> Void)? = nil,
         autoReconnect: AutoReconnectOptions? = nil,
         heartbeat: HeartbeatOptions = HeartbeatOptions(),
@@ -112,7 +113,7 @@ public struct WspulseClientOptions: Sendable {
         precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
-        self.onReconnect = onReconnect
+        self.onTransportRestore = onTransportRestore
         self.onTransportDrop = onTransportDrop
         self.autoReconnect = autoReconnect
         self.heartbeat = heartbeat
