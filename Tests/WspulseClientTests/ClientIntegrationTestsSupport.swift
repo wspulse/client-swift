@@ -10,19 +10,19 @@ final class TestState: @unchecked Sendable {
     private var _received: [Frame] = []
     private var _disconnects: [Error?] = []
     private var _transportDrops: [Error] = []
-    private var _reconnects: [Int] = []
+    private var _transportRestoreCount = 0
 
     func addReceived(_ frame: Frame)    { lock.withLock { _received.append(frame) } }
     func addDisconnect(_ err: Error?)   { lock.withLock { _disconnects.append(err) } }
     func addTransportDrop(_ err: Error) { lock.withLock { _transportDrops.append(err) } }
-    func addReconnect(_ attempt: Int)   { lock.withLock { _reconnects.append(attempt) } }
+    func addTransportRestore()          { lock.withLock { _transportRestoreCount += 1 } }
 
-    var received: [Frame]         { lock.withLock { _received } }
-    var receivedCount: Int        { lock.withLock { _received.count } }
-    var disconnectCount: Int      { lock.withLock { _disconnects.count } }
-    var reconnectCount: Int       { lock.withLock { _reconnects.count } }
-    var disconnectCalled: Bool    { lock.withLock { !_disconnects.isEmpty } }
-    var transportDropCalled: Bool { lock.withLock { !_transportDrops.isEmpty } }
+    var received: [Frame]          { lock.withLock { _received } }
+    var receivedCount: Int         { lock.withLock { _received.count } }
+    var disconnectCount: Int       { lock.withLock { _disconnects.count } }
+    var transportRestoreCount: Int { lock.withLock { _transportRestoreCount } }
+    var disconnectCalled: Bool     { lock.withLock { !_disconnects.isEmpty } }
+    var transportDropCalled: Bool  { lock.withLock { !_transportDrops.isEmpty } }
 
     /// The error value from the first `onDisconnect` call. `nil` means clean close.
     var firstDisconnectErr: Error? {

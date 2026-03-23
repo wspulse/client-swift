@@ -150,10 +150,6 @@ extension WspulseClient {
 
                 if Task.isCancelled { return }
 
-                await self.notifyReconnect(attempt: attempt)
-
-                if Task.isCancelled { return }
-
                 let succeeded = await self.attemptReconnect()
 
                 if Task.isCancelled { return }
@@ -199,10 +195,8 @@ extension WspulseClient {
         startWriteLoop()
         startPingLoop()
         writeSignalContinuation.yield()
-    }
 
-    private func notifyReconnect(attempt: Int) {
-        options.onReconnect?(attempt)
+        options.onTransportRestore?()
     }
 
     func reconnectExhausted() async {

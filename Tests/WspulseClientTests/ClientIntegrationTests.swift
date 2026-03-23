@@ -145,7 +145,7 @@ extension ClientIntegrationTests {
             url: wsUrl("?id=\(id)"),
             options: WspulseClientOptions(
                 onMessage: { state.addReceived($0) },
-                onReconnect: { state.addReconnect($0) },
+                onTransportRestore: { state.addTransportRestore() },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 5,
                     baseDelay: .milliseconds(100),
@@ -161,7 +161,7 @@ extension ClientIntegrationTests {
         try await waitUntil { state.receivedCount >= 1 }
 
         try await kick(id)
-        try await waitUntil(timeout: 15) { state.reconnectCount >= 1 }
+        try await waitUntil(timeout: 15) { state.transportRestoreCount >= 1 }
 
         // Allow new connection to stabilise.
         try await Task.sleep(for: .milliseconds(500))
@@ -218,13 +218,13 @@ extension ClientIntegrationTests {
             url: wsUrl("?id=\(id)"),
             options: WspulseClientOptions(
                 onDisconnect: { state.addDisconnect($0) },
-                onReconnect: { _ in
-                    // Close from inside the reconnect callback.
-                    Task { await clientRef.value?.close() }
-                },
+                onTransportDrop: { _ in Task {
+                    try? await Task.sleep(for: .milliseconds(150))
+                    await clientRef.value?.close()
+                } },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 10,
-                    baseDelay: .milliseconds(100),
+                    baseDelay: .milliseconds(200),
                     maxDelay: .milliseconds(500)
                 )
             )

@@ -257,6 +257,21 @@ final class ClientUnitTests: XCTestCase {
         await client.close()
     }
 
+    // MARK: - onTransportRestore does not fire on initial connect
+
+    func testOnTransportRestoreDoesNotFireOnInitialConnect() async throws {
+        let state = CallbackState()
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:1")!,
+            options: WspulseClientOptions(
+                onTransportRestore: { state.increment() }
+            )
+        )
+        // Initial connect fails — onTransportRestore must not fire.
+        do { try await client.connect() } catch {}
+        XCTAssertEqual(state.count, 0)
+    }
+
     // MARK: - Backoff negative attempt
 
     func testBackoffNegativeAttemptDoesNotCrash() {

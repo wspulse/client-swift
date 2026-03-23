@@ -8,7 +8,7 @@ final class OptionsTests: XCTestCase {
         let opts = WspulseClientOptions()
         XCTAssertNil(opts.onMessage)
         XCTAssertNil(opts.onDisconnect)
-        XCTAssertNil(opts.onReconnect)
+        XCTAssertNil(opts.onTransportRestore)
         XCTAssertNil(opts.onTransportDrop)
         XCTAssertNil(opts.autoReconnect)
         XCTAssertEqual(opts.writeWait, .seconds(10))
@@ -105,13 +105,12 @@ final class OptionsTests: XCTestCase {
         wait(for: [expectation], timeout: 1)
     }
 
-    func testOnReconnectCallbackIsInvoked() {
-        let expectation = XCTestExpectation(description: "onReconnect called")
-        let opts = WspulseClientOptions(onReconnect: { attempt in
-            XCTAssertEqual(attempt, 3)
+    func testOnTransportRestoreCallbackIsInvoked() {
+        let expectation = XCTestExpectation(description: "onTransportRestore called")
+        let opts = WspulseClientOptions(onTransportRestore: {
             expectation.fulfill()
         })
-        opts.onReconnect?(3)
+        opts.onTransportRestore?()
         wait(for: [expectation], timeout: 1)
     }
 
