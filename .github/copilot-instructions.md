@@ -54,6 +54,7 @@ make clean      # swift package clean
   - Mark deprecated symbols with `@available(*, deprecated, message: "Use Xxx instead")` before removal.
 - **Error format**: error descriptions prefixed with `wspulse: <context>`.
 - **Dependency policy**: zero external dependencies. `URLSessionWebSocketTask` from Foundation is the only transport. Justify any new external dependency explicitly in the PR description.
+- **File encoding**: all files must be UTF-8 without BOM. Do not use any other encoding.
 
 ## Critical Rules
 
