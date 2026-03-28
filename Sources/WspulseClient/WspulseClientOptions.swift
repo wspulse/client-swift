@@ -117,7 +117,10 @@ public struct WspulseClientOptions: Sendable {
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
         precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
         precondition(sendBufferSize >= 1, "wspulse: sendBufferSize must be at least 1")
-        precondition(sendBufferSize <= maxSendBufferSize, "wspulse: sendBufferSize exceeds maximum (4096)")
+        precondition(
+            sendBufferSize <= maxSendBufferSize,
+            "wspulse: sendBufferSize exceeds maximum (\(maxSendBufferSize))"
+        )
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
         self.onTransportRestore = onTransportRestore
