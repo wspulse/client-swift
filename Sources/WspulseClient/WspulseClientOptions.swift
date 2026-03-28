@@ -9,6 +9,7 @@ private let maxMsgSizeBytes = 64 * 1_048_576
 private let maxBaseDelay: Duration = .seconds(60)
 private let maxDelayLimit: Duration = .seconds(300)
 private let maxRetriesLimit = 32
+private let maxSendBufferSize = 4096
 
 /// Configuration for automatic reconnection with exponential backoff.
 public struct AutoReconnectOptions: Sendable {
@@ -88,6 +89,9 @@ public struct WspulseClientOptions: Sendable {
     /// Extra HTTP headers sent during WebSocket upgrade.
     public var dialHeaders: [String: String]
 
+    /// Capacity of the outbound frame buffer. Range: [1, 4096]. Default: 256.
+    public var sendBufferSize: Int
+
     /// Wire-format codec for encoding/decoding Frames.
     public var codec: any WspulseCodec
 
@@ -103,6 +107,7 @@ public struct WspulseClientOptions: Sendable {
         heartbeat: HeartbeatOptions = HeartbeatOptions(),
         writeWait: Duration = .seconds(10),
         maxMessageSize: Int = 1_048_576,
+        sendBufferSize: Int = 256,
         dialHeaders: [String: String] = [:],
         codec: any WspulseCodec = JSONCodec(),
         logger: os.Logger = Logger(subsystem: "com.wspulse", category: "WspulseClient")
@@ -111,6 +116,11 @@ public struct WspulseClientOptions: Sendable {
         precondition(maxMessageSize <= maxMsgSizeBytes, "wspulse: maxMessageSize exceeds maximum (64 MiB)")
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
         precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
+        precondition(sendBufferSize >= 1, "wspulse: sendBufferSize must be at least 1")
+        precondition(
+            sendBufferSize <= maxSendBufferSize,
+            "wspulse: sendBufferSize exceeds maximum (\(maxSendBufferSize))"
+        )
         self.onMessage = onMessage
         self.onDisconnect = onDisconnect
         self.onTransportRestore = onTransportRestore
@@ -119,6 +129,7 @@ public struct WspulseClientOptions: Sendable {
         self.heartbeat = heartbeat
         self.writeWait = writeWait
         self.maxMessageSize = maxMessageSize
+        self.sendBufferSize = sendBufferSize
         self.dialHeaders = dialHeaders
         self.codec = codec
         self.logger = logger

@@ -25,7 +25,7 @@ public actor WspulseClient {
     /// same transport drop).
     var reconnecting = false
     var sendBuffer: [Data] = []
-    let sendBufferMax = 256
+    let sendBufferMax: Int
 
     // Signal channel for the write loop: each element means "there's data to send".
     // Declared `var` so startWriteLoop() can replace the stream on each connection
@@ -42,6 +42,7 @@ public actor WspulseClient {
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
         self.url = url
         self.options = options
+        self.sendBufferMax = options.sendBufferSize
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
 
         var cont: AsyncStream<Void>.Continuation!
