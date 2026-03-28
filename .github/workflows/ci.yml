@@ -86,7 +86,7 @@ jobs:
     steps:
       - name: Verify lint-test passed
         run: |
-          if [[ "${{ needs['lint-test'].result }}" != "success" ]]; then
+          if [[ "${{ needs.lint-test.result }}" != "success" ]]; then
             echo "lint-test failed"
             exit 1
           fi
@@ -98,11 +98,11 @@ jobs:
     steps:
       - name: Verify test-integration passed
         run: |
-          if [[ "${{ needs['lint-test'].result }}" != "success" ]]; then
+          if [[ "${{ needs.lint-test.result }}" != "success" ]]; then
             echo "lint-test failed — test-integration skipped is not valid"
             exit 1
           fi
-          if [[ "${{ needs['test-integration'].result }}" != "success" && "${{ needs['test-integration'].result }}" != "skipped" ]]; then
+          if [[ "${{ needs.test-integration.result }}" != "success" && "${{ needs.test-integration.result }}" != "skipped" ]]; then
             echo "test-integration failed"
             exit 1
           fi
