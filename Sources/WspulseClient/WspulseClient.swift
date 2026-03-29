@@ -127,39 +127,14 @@ public actor WspulseClient {
                     + " (ws://, wss://, http://, or https://)"
             )
         }
+        let targetScheme: String
         switch scheme {
         case "ws", "wss":
             return url
         case "http":
-            guard var components = URLComponents(
-                url: url, resolvingAgainstBaseURL: false
-            ) else {
-                preconditionFailure(
-                    "wspulse: invalid url for scheme normalization: \(url.absoluteString)"
-                )
-            }
-            components.scheme = "ws"
-            guard let normalized = components.url else {
-                preconditionFailure(
-                    "wspulse: unable to construct normalized url: \(url.absoluteString)"
-                )
-            }
-            return normalized
+            targetScheme = "ws"
         case "https":
-            guard var components = URLComponents(
-                url: url, resolvingAgainstBaseURL: false
-            ) else {
-                preconditionFailure(
-                    "wspulse: invalid url for scheme normalization: \(url.absoluteString)"
-                )
-            }
-            components.scheme = "wss"
-            guard let normalized = components.url else {
-                preconditionFailure(
-                    "wspulse: unable to construct normalized url: \(url.absoluteString)"
-                )
-            }
-            return normalized
+            targetScheme = "wss"
         default:
             preconditionFailure(
                 "wspulse: unsupported url scheme"
@@ -167,6 +142,23 @@ public actor WspulseClient {
                     + " use ws://, wss://, http://, or https://"
             )
         }
+
+        guard var components = URLComponents(
+            url: url, resolvingAgainstBaseURL: false
+        ) else {
+            preconditionFailure(
+                "wspulse: invalid url for scheme"
+                    + " normalization (scheme: \"\(scheme)\")"
+            )
+        }
+        components.scheme = targetScheme
+        guard let normalized = components.url else {
+            preconditionFailure(
+                "wspulse: unable to construct normalized"
+                    + " url (scheme: \"\(scheme)\")"
+            )
+        }
+        return normalized
     }
 
     /// Permanently terminate the connection and stop any reconnect loop.
