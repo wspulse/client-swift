@@ -116,49 +116,24 @@ public actor WspulseClient {
 
     /// Convert `http://` to `ws://` and `https://` to `wss://`.
     ///
-    /// WebSocket-native schemes (`ws://`, `wss://`) pass through unchanged.
-    /// Missing or unsupported schemes trigger a precondition failure — this
-    /// is a setup-time programmer error (invalid configuration passed by the
-    /// caller).
+    /// All other schemes (including `ws://` and `wss://`) pass through
+    /// unchanged. `URLSessionWebSocketTask` rejects invalid URLs at
+    /// dial time, so no additional validation is needed here.
     private static func normalizeScheme(_ url: URL) -> URL {
-        guard let scheme = url.scheme?.lowercased() else {
-            preconditionFailure(
-                "wspulse: url must include scheme"
-                    + " (ws://, wss://, http://, or https://)"
-            )
-        }
-        let targetScheme: String
-        switch scheme {
-        case "ws", "wss":
-            return url
-        case "http":
-            targetScheme = "ws"
-        case "https":
-            targetScheme = "wss"
-        default:
-            preconditionFailure(
-                "wspulse: unsupported url scheme"
-                    + " \"\(scheme)\","
-                    + " use ws://, wss://, http://, or https://"
-            )
-        }
-
         guard var components = URLComponents(
             url: url, resolvingAgainstBaseURL: false
         ) else {
-            preconditionFailure(
-                "wspulse: invalid url for scheme"
-                    + " normalization (scheme: \"\(scheme)\")"
-            )
+            return url
         }
-        components.scheme = targetScheme
-        guard let normalized = components.url else {
-            preconditionFailure(
-                "wspulse: unable to construct normalized"
-                    + " url (scheme: \"\(scheme)\")"
-            )
+        switch components.scheme?.lowercased() {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        default:
+            return url
         }
-        return normalized
+        return components.url ?? url
     }
 
     /// Permanently terminate the connection and stop any reconnect loop.
