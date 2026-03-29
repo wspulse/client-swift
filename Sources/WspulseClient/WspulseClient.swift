@@ -118,7 +118,8 @@ public actor WspulseClient {
     ///
     /// WebSocket-native schemes (`ws://`, `wss://`) pass through unchanged.
     /// Missing or unsupported schemes trigger a precondition failure — this
-    /// is a setup-time programmer error (see Critical Rule 13).
+    /// is a setup-time programmer error (invalid configuration passed by the
+    /// caller).
     private static func normalizeScheme(_ url: URL) -> URL {
         guard let scheme = url.scheme?.lowercased() else {
             preconditionFailure(
@@ -130,17 +131,35 @@ public actor WspulseClient {
         case "ws", "wss":
             return url
         case "http":
-            var components = URLComponents(
+            guard var components = URLComponents(
                 url: url, resolvingAgainstBaseURL: false
-            )!
+            ) else {
+                preconditionFailure(
+                    "wspulse: invalid url for scheme normalization: \(url.absoluteString)"
+                )
+            }
             components.scheme = "ws"
-            return components.url!
+            guard let normalized = components.url else {
+                preconditionFailure(
+                    "wspulse: unable to construct normalized url: \(url.absoluteString)"
+                )
+            }
+            return normalized
         case "https":
-            var components = URLComponents(
+            guard var components = URLComponents(
                 url: url, resolvingAgainstBaseURL: false
-            )!
+            ) else {
+                preconditionFailure(
+                    "wspulse: invalid url for scheme normalization: \(url.absoluteString)"
+                )
+            }
             components.scheme = "wss"
-            return components.url!
+            guard let normalized = components.url else {
+                preconditionFailure(
+                    "wspulse: unable to construct normalized url: \(url.absoluteString)"
+                )
+            }
+            return normalized
         default:
             preconditionFailure(
                 "wspulse: unsupported url scheme"
