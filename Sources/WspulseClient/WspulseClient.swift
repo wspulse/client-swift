@@ -116,24 +116,37 @@ public actor WspulseClient {
 
     /// Convert `http://` to `ws://` and `https://` to `wss://`.
     ///
-    /// All other schemes (including `ws://` and `wss://`) pass through
-    /// unchanged. `URLSessionWebSocketTask` rejects invalid URLs at
-    /// dial time, so no additional validation is needed here.
+    /// Unsupported or missing schemes trigger `preconditionFailure`
+    /// because `URLSessionWebSocketTask` throws an uncatchable
+    /// `NSException` for non-ws/wss schemes, crashing the process.
     private static func normalizeScheme(_ url: URL) -> URL {
         guard var components = URLComponents(
             url: url, resolvingAgainstBaseURL: false
         ) else {
-            return url
+            preconditionFailure("wspulse: failed to parse URL")
         }
+
         switch components.scheme?.lowercased() {
         case "http":
             components.scheme = "ws"
         case "https":
             components.scheme = "wss"
-        default:
+        case "ws", "wss":
             return url
+        default:
+            preconditionFailure(
+                "wspulse: unsupported url scheme "
+                    + "\"\(components.scheme ?? "none")\", "
+                    + "use ws://, wss://, http://, or https://"
+            )
         }
-        return components.url ?? url
+
+        guard let result = components.url else {
+            preconditionFailure(
+                "wspulse: failed to rebuild URL after scheme conversion"
+            )
+        }
+        return result
     }
 
     /// Permanently terminate the connection and stop any reconnect loop.

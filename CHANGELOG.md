@@ -4,7 +4,7 @@
 
 ### Added
 
-- `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` (case-insensitive per RFC 3986). Other schemes are passed through to URLSessionWebSocketTask.
+- `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` (case-insensitive per RFC 3986). Unsupported or missing schemes trigger precondition failure.
 - `sendBufferSize` option — configurable outbound buffer capacity [1, 4096], default 256
 
 ---
