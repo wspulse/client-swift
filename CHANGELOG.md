@@ -4,6 +4,7 @@
 
 ### Added
 
+- `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` URL schemes. Missing or unsupported schemes trigger precondition failure.
 - `sendBufferSize` option — configurable outbound buffer capacity [1, 4096], default 256
 
 ---
