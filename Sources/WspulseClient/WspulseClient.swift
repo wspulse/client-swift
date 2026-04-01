@@ -136,7 +136,7 @@ public actor WspulseClient {
         default:
             preconditionFailure(
                 "wspulse: unsupported url scheme "
-                    + "\"\(components.scheme ?? "none")\", "
+                    + "\"\(components.scheme ?? "(missing)")\", "
                     + "use ws://, wss://, http://, or https://"
             )
         }

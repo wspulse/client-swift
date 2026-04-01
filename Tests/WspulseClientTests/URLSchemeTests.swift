@@ -4,7 +4,7 @@ import XCTest
 final class URLSchemeTests: XCTestCase {
     // MARK: - WebSocket schemes pass through unchanged
 
-    func testWSSchemePassthrough() async {
+    func testWSPassthrough() async {
         let client = WspulseClient(
             url: URL(string: "ws://localhost:8080/path")!
         )
@@ -13,7 +13,7 @@ final class URLSchemeTests: XCTestCase {
         await client.close()
     }
 
-    func testWSSSchemePassthrough() async {
+    func testWSSPassthrough() async {
         let client = WspulseClient(
             url: URL(string: "wss://example.com/ws")!
         )
