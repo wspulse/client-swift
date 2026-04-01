@@ -119,6 +119,12 @@ public actor WspulseClient {
     /// Unsupported or missing schemes trigger `preconditionFailure`
     /// because `URLSessionWebSocketTask` throws an uncatchable
     /// `NSException` for non-ws/wss schemes, crashing the process.
+    /// This is the "reject at setup time" strategy defined in the
+    /// client interface contract. client-go and client-ts use the
+    /// alternative "passthrough" strategy because their underlying
+    /// libraries (gorilla/websocket, `ws`) return catchable errors.
+    /// client-kt also rejects explicitly due to Ktor's unhelpful
+    /// error messages.
     private static func normalizeScheme(_ url: URL) -> URL {
         guard var components = URLComponents(
             url: url, resolvingAgainstBaseURL: false
