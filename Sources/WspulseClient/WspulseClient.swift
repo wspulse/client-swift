@@ -40,7 +40,7 @@ public actor WspulseClient {
     var pingTask: Task<Void, Never>?
 
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
-        self.url = url
+        self.url = Self.normalizeScheme(url)
         self.options = options
         self.sendBufferMax = options.sendBufferSize
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
@@ -110,6 +110,43 @@ public actor WspulseClient {
 
         sendBuffer.append(data)
         writeSignalContinuation.yield()
+    }
+
+    // MARK: - URL Scheme Normalization
+
+    /// Convert `http://` to `ws://` and `https://` to `wss://`.
+    ///
+    /// Unsupported or missing schemes trigger `preconditionFailure`
+    /// because `URLSessionWebSocketTask` raises an uncatchable
+    /// `NSException` for non-ws/wss schemes.
+    private static func normalizeScheme(_ url: URL) -> URL {
+        guard var components = URLComponents(
+            url: url, resolvingAgainstBaseURL: false
+        ) else {
+            preconditionFailure("wspulse: failed to parse URL")
+        }
+
+        switch components.scheme?.lowercased() {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        case "ws", "wss":
+            return url
+        default:
+            preconditionFailure(
+                "wspulse: unsupported url scheme "
+                    + "\"\(components.scheme ?? "(missing)")\", "
+                    + "use ws://, wss://, http://, or https://"
+            )
+        }
+
+        guard let result = components.url else {
+            preconditionFailure(
+                "wspulse: failed to rebuild URL after scheme conversion"
+            )
+        }
+        return result
     }
 
     /// Permanently terminate the connection and stop any reconnect loop.
