@@ -9,7 +9,7 @@ final class CodecTests: XCTestCase {
     }
 
     func testEncodeDecodeRoundTrip() throws {
-        let frame = Frame(id: "1", event: "test", payload: .string("data"))
+        let frame = Frame(event: "test", payload: .string("data"))
         let data = try codec.encode(frame)
         let decoded = try codec.decode(data)
         XCTAssertEqual(decoded, frame)
@@ -19,7 +19,6 @@ final class CodecTests: XCTestCase {
         let frame = Frame()
         let data = try codec.encode(frame)
         let decoded = try codec.decode(data)
-        XCTAssertNil(decoded.id)
         XCTAssertNil(decoded.event)
         XCTAssertNil(decoded.payload)
     }
@@ -39,7 +38,6 @@ final class CodecTests: XCTestCase {
 
     func testEncodeDecodeComplexPayload() throws {
         let frame = Frame(
-            id: "abc",
             event: "data",
             payload: .object([
                 "numbers": .array([.number(1), .number(2), .number(3)]),
@@ -63,7 +61,6 @@ final class CodecTests: XCTestCase {
         let json = #"{"event":"ping"}"#
         let data = json.data(using: .utf8)!
         let frame = try codec.decode(data)
-        XCTAssertNil(frame.id)
         XCTAssertEqual(frame.event, "ping")
         XCTAssertNil(frame.payload)
     }
@@ -75,7 +72,7 @@ final class CodecTests: XCTestCase {
 
     func testCustomCodecRoundTrip() throws {
         let binaryCodec = StubBinaryCodec()
-        let frame = Frame(id: "b1", event: "data")
+        let frame = Frame(event: "data", payload: .string("b1"))
         let encoded = try binaryCodec.encode(frame)
         let decoded = try binaryCodec.decode(encoded)
         XCTAssertEqual(decoded, frame)

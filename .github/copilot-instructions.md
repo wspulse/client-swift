@@ -9,7 +9,7 @@ wspulse/client-swift is a **WebSocket client library for Apple platforms** (iOS 
 - **`Sources/WspulseClient/WspulseClient.swift`** — `public actor WspulseClient`: entry point with `connect()`, `send()`, `close()`, `done`. Internal `Task`s: `readLoop`, `writeLoop`, `reconnectLoop`, `pingLoop`.
 - **`Sources/WspulseClient/WspulseClientOptions.swift`** — `WspulseClientOptions` value type with all configuration (callbacks, reconnect, heartbeat, codec).
 - **`Sources/WspulseClient/Codec.swift`** — `WspulseCodec` protocol, `FrameType` enum, `JSONCodec` default implementation.
-- **`Sources/WspulseClient/Frame.swift`** — `struct Frame: Codable, Sendable` (`id`, `event`, `payload` — all optional).
+- **`Sources/WspulseClient/Frame.swift`** — `struct Frame: Codable, Sendable` (`event`, `payload` — all optional).
 - **`Sources/WspulseClient/AnyJSON.swift`** — `enum AnyJSON: Codable, Sendable, Equatable` for type-erased JSON values.
 - **`Sources/WspulseClient/Errors.swift`** — `enum WspulseError: Error, Sendable` hierarchy.
 - **`Sources/WspulseClient/Backoff.swift`** — `backoff(attempt:base:max:)` function for exponential delay with equal jitter (matches Go implementation).

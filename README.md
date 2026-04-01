@@ -135,7 +135,6 @@ The default `JSONCodec` encodes frames as JSON text frames:
 
 ```json
 {
-  "id": "msg-001",
   "event": "chat.message",
   "payload": { "text": "hello" }
 }
@@ -195,7 +194,6 @@ let client = WspulseClient(
 
 ```swift
 public struct Frame: Codable, Sendable {
-    public var id: String?
     public var event: String?
     public var payload: AnyJSON?
 }

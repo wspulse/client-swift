@@ -374,7 +374,6 @@ extension ClientIntegrationTests {
         try await client.connect()
 
         let outbound = Frame(
-            id: "test-id-001",
             event: "chat.message",
             payload: .object([
                 "user": .string("alice"),
