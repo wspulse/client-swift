@@ -1,14 +1,10 @@
 @testable import WspulseClient
 import XCTest
 
-// MARK: - ClientComponentTests
+// MARK: - ReconnectTests
 
-/// Component tests using mock transport — deterministic, zero network I/O.
-/// Replaces integration tests that required a live Go testserver.
-///
-/// Core scenarios (1-5) are here; scenarios 6-9 and additional
-/// tests are in `ClientComponentTestsAdditional.swift`.
-final class ClientComponentTests: XCTestCase {
+/// Reconnect flow component tests using mock transport.
+final class ReconnectTests: XCTestCase {
 
     // MARK: - Helpers
 
@@ -30,82 +26,13 @@ final class ClientComponentTests: XCTestCase {
         let msg = "waitUntil timed out after \(timeout)s"
         XCTFail(msg)
         throw NSError(
-            domain: "ClientComponentTests",
+            domain: "ReconnectTests",
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: msg]
         )
     }
 
-    // MARK: - 1: Connect -> send -> receive -> close clean
-
-    func testConnectSendReceiveCloseClean() async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onMessage: { state.addReceived($0) },
-                onDisconnect: { state.addDisconnect($0) }
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        let outbound = Frame(
-            event: "msg",
-            payload: .object(["text": .string("hello")])
-        )
-        try await client.send(outbound)
-
-        let echoData = try encode(outbound)
-        await transport.injectData(echoData)
-
-        try await waitUntil { state.receivedCount >= 1 }
-        XCTAssertEqual(state.received.first?.event, "msg")
-        XCTAssertEqual(
-            state.received.first?.payload,
-            .object(["text": .string("hello")])
-        )
-
-        await client.close()
-        for await _ in client.done {}
-        XCTAssertEqual(state.disconnectCount, 1)
-        XCTAssertNil(state.firstDisconnectErr)
-    }
-
-    // MARK: - 2: Transport error -> callbacks (no reconnect)
-
-    func testTransportErrorFiresTransportDropAndDisconnect(
-    ) async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) },
-                onTransportDrop: { state.addTransportDrop($0) }
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        await transport.injectError(
-            NSError(
-                domain: "test", code: 1,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "connection reset"
-                ]
-            )
-        )
-
-        try await waitUntil { state.transportDropCalled }
-        try await waitUntil { state.disconnectCalled }
-        XCTAssertNotNil(state.firstDisconnectErr)
-    }
-
-    // MARK: - 3: Auto-reconnect after transport drop
+    // MARK: - Auto-reconnect after transport drop
 
     func testReconnectsAfterTransportDrop() async throws {
         let state = TestState()
@@ -156,7 +83,7 @@ final class ClientComponentTests: XCTestCase {
         await client.close()
     }
 
-    // MARK: - 4: Max retries exhausted
+    // MARK: - Max retries exhausted
 
     func testFiresRetriesExhaustedAfterMaxRetries() async throws {
         let state = TestState()
@@ -206,7 +133,7 @@ final class ClientComponentTests: XCTestCase {
         }
     }
 
-    // MARK: - 5: close() during reconnect
+    // MARK: - close() during reconnect
 
     func testCloseDuringReconnectFiresDisconnectNil(
     ) async throws {

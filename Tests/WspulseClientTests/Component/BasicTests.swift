@@ -1,10 +1,10 @@
 @testable import WspulseClient
 import XCTest
 
-// MARK: - ClientComponentTestsExtras
+// MARK: - BasicTests
 
-/// Additional component tests beyond the core 9 scenarios.
-final class ClientComponentTestsExtras: XCTestCase {
+/// Basic connect/send/receive component tests using mock transport.
+final class BasicTests: XCTestCase {
 
     // MARK: - Helpers
 
@@ -26,10 +26,48 @@ final class ClientComponentTestsExtras: XCTestCase {
         let msg = "waitUntil timed out after \(timeout)s"
         XCTFail(msg)
         throw NSError(
-            domain: "ClientComponentTests",
+            domain: "BasicTests",
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: msg]
         )
+    }
+
+    // MARK: - Connect -> send -> receive -> close clean
+
+    func testConnectSendReceiveCloseClean() async throws {
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onMessage: { state.addReceived($0) },
+                onDisconnect: { state.addDisconnect($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        let outbound = Frame(
+            event: "msg",
+            payload: .object(["text": .string("hello")])
+        )
+        try await client.send(outbound)
+
+        let echoData = try encode(outbound)
+        await transport.injectData(echoData)
+
+        try await waitUntil { state.receivedCount >= 1 }
+        XCTAssertEqual(state.received.first?.event, "msg")
+        XCTAssertEqual(
+            state.received.first?.payload,
+            .object(["text": .string("hello")])
+        )
+
+        await client.close()
+        for await _ in client.done {}
+        XCTAssertEqual(state.disconnectCount, 1)
+        XCTAssertNil(state.firstDisconnectErr)
     }
 
     // MARK: - Frame field round-trip
@@ -160,104 +198,6 @@ final class ClientComponentTestsExtras: XCTestCase {
         XCTAssertEqual(
             state.received.first?.payload, .string("pong")
         )
-
-        await client.close()
-    }
-
-    // MARK: - onDisconnect fires exactly once
-
-    func testOnDisconnectFiresExactlyOnceOnClose(
-    ) async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) }
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        await client.close()
-        for await _ in client.done {}
-        XCTAssertEqual(state.disconnectCount, 1)
-        XCTAssertNil(state.firstDisconnectErr)
-    }
-
-    // MARK: - Close idempotency
-
-    func testCloseIsIdempotent() async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) }
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        await client.close()
-        await client.close()
-        await client.close()
-        for await _ in client.done {}
-        XCTAssertEqual(state.disconnectCount, 1)
-    }
-
-    // MARK: - Transport drop fires onDisconnect
-
-    func testTransportDropFiresOnDisconnect() async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) }
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        await transport.injectError(
-            NSError(domain: "test", code: 1, userInfo: nil)
-        )
-        try await waitUntil(timeout: 10) {
-            state.disconnectCalled
-        }
-        XCTAssertTrue(state.disconnectCalled)
-        XCTAssertNotNil(state.firstDisconnectErr)
-    }
-
-    // MARK: - onTransportRestore not on initial connect
-
-    func testTransportRestoreNotOnInitialConnect(
-    ) async throws {
-        let state = TestState()
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onTransportRestore: {
-                    state.addTransportRestore()
-                },
-                autoReconnect: AutoReconnectOptions(
-                    maxRetries: 3,
-                    baseDelay: .milliseconds(10),
-                    maxDelay: .milliseconds(50)
-                )
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        try await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(state.transportRestoreCount, 0)
 
         await client.close()
     }

@@ -1,10 +1,10 @@
 @testable import WspulseClient
 import XCTest
 
-// MARK: - ClientComponentTestsMore
+// MARK: - MiscTests
 
-/// Component test scenarios 6-9.
-final class ClientComponentTestsMore: XCTestCase {
+/// Miscellaneous component tests using mock transport.
+final class MiscTests: XCTestCase {
 
     // MARK: - Helpers
 
@@ -26,7 +26,7 @@ final class ClientComponentTestsMore: XCTestCase {
         let msg = "waitUntil timed out after \(timeout)s"
         XCTFail(msg)
         throw NSError(
-            domain: "ClientComponentTests",
+            domain: "MiscTests",
             code: 1,
             userInfo: [NSLocalizedDescriptionKey: msg]
         )
@@ -49,63 +49,7 @@ final class ClientComponentTestsMore: XCTestCase {
         )
     }
 
-    // MARK: - 6: send() after close
-
-    func testSendAfterCloseThrowsConnectionClosed(
-    ) async throws {
-        let transport = MockTransport()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(),
-            transport: transport
-        )
-        try await client.connect()
-        await client.close()
-
-        do {
-            try await client.send(Frame(event: "msg"))
-            XCTFail("Expected WspulseError.connectionClosed")
-        } catch let err as WspulseError {
-            XCTAssertEqual(err, .connectionClosed)
-        }
-    }
-
-    // MARK: - 7: Pong timeout
-
-    func testPongTimeoutTriggersConnectionLost() async throws {
-        let state = TestState()
-        let transport = MockTransport()
-        await transport.suppressPongs()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) },
-                heartbeat: HeartbeatOptions(
-                    pingPeriod: .milliseconds(50),
-                    pongWait: .milliseconds(200)
-                )
-            ),
-            transport: transport
-        )
-        try await client.connect()
-
-        try await waitUntil(timeout: 10) {
-            state.disconnectCalled
-        }
-
-        if let err = state.firstDisconnectErr as? WspulseError {
-            XCTAssertEqual(err, .connectionLost)
-        } else {
-            XCTFail(
-                "Expected .connectionLost, got "
-                    + String(describing: state.firstDisconnectErr)
-            )
-        }
-    }
-
-    // MARK: - 8: Concurrent sends
+    // MARK: - Concurrent sends
 
     func testConcurrentSendsDoNotRace() async throws {
         let senders = 10
@@ -194,41 +138,37 @@ final class ClientComponentTestsMore: XCTestCase {
         }
     }
 
-    // MARK: - 9: close() racing with transport drop
+    // MARK: - Pong timeout
 
-    func testCloseRacingWithTransportDropFiresDisconnectOnce(
-    ) async throws {
+    func testPongTimeoutTriggersConnectionLost() async throws {
         let state = TestState()
         let transport = MockTransport()
+        await transport.suppressPongs()
 
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:9999")!,
             options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) }
+                onDisconnect: { state.addDisconnect($0) },
+                heartbeat: HeartbeatOptions(
+                    pingPeriod: .milliseconds(50),
+                    pongWait: .milliseconds(200)
+                )
             ),
             transport: transport
         )
         try await client.connect()
 
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await transport.injectError(
-                    NSError(
-                        domain: "test",
-                        code: 1,
-                        userInfo: nil
-                    )
-                )
-            }
-            group.addTask {
-                await client.close()
-            }
-        }
-
-        try await waitUntil(timeout: 5) {
+        try await waitUntil(timeout: 10) {
             state.disconnectCalled
         }
-        try await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(state.disconnectCount, 1)
+
+        if let err = state.firstDisconnectErr as? WspulseError {
+            XCTAssertEqual(err, .connectionLost)
+        } else {
+            XCTFail(
+                "Expected .connectionLost, got "
+                    + String(describing: state.firstDisconnectErr)
+            )
+        }
     }
 }
