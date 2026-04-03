@@ -105,6 +105,7 @@ actor MockTransport: TransportProtocol {
 
     /// Reset closed state (for reuse after close).
     func reset() {
+        failPendingReceives()
         closed = false
         sentData.removeAll()
         receiveQueue.removeAll()
@@ -139,6 +140,7 @@ actor MockDialerTransport: TransportProtocol {
     private var currentIndex = -1
     private var current: MockTransport?
     private var dialErrors: [Int: Error]
+    private var closed = false
     private(set) var dialCount = 0
 
     init(
@@ -161,6 +163,7 @@ actor MockDialerTransport: TransportProtocol {
         }
         current = transports[index]
         try await current!.dial(url: url, headers: headers)
+        closed = false
     }
 
     func send(_ data: Data, frameType: FrameType) async throws {
@@ -170,13 +173,6 @@ actor MockDialerTransport: TransportProtocol {
         try await current.send(data, frameType: frameType)
     }
 
-    func receive() async throws -> Data {
-        guard let current else {
-            throw WspulseError.connectionClosed
-        }
-        return try await current.receive()
-    }
-
     func sendPing() async throws {
         guard let current else {
             throw WspulseError.connectionClosed
@@ -184,7 +180,16 @@ actor MockDialerTransport: TransportProtocol {
         try await current.sendPing()
     }
 
+    func receive() async throws -> Data {
+        guard !closed else { throw WspulseError.connectionClosed }
+        guard let current else {
+            throw WspulseError.connectionClosed
+        }
+        return try await current.receive()
+    }
+
     func close() {
+        closed = true
         let transport = current
         if let transport {
             Task { await transport.close() }
@@ -192,6 +197,7 @@ actor MockDialerTransport: TransportProtocol {
     }
 
     func close(code: URLSessionWebSocketTask.CloseCode) {
+        closed = true
         let transport = current
         if let transport {
             Task { await transport.close() }
