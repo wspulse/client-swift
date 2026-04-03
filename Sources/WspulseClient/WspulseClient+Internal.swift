@@ -234,6 +234,7 @@ extension WspulseClient {
         let writeWait = options.writeWait
         let conn = connection
         let frameType = options.codec.frameType
+        let slp = sleeper
         while !sendBuffer.isEmpty {
             let data = sendBuffer[0]
             do {
@@ -242,7 +243,7 @@ extension WspulseClient {
                         try await conn.send(data, frameType: frameType)
                     }
                     group.addTask {
-                        try await Task.sleep(for: writeWait)
+                        try await slp.sleep(for: writeWait)
                         throw WspulseError.connectionLost
                     }
                     if let result = try await group.next() {

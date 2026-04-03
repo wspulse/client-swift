@@ -113,6 +113,7 @@ final class ReconnectTests: XCTestCase {
             url: URL(string: "ws://127.0.0.1:9999")!,
             options: WspulseClientOptions(
                 onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 2,
                     baseDelay: .milliseconds(10),
@@ -128,8 +129,12 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        // Advance past 3 sleeps: 1 for the ping loop that was running during
-        // the initial connection, plus 1 per retry backoff delay (2 retries).
+        // Wait for transport drop before advancing: ensures ping task is
+        // cancelled so its pending sleep won't consume reconnect credits.
+        try await waitUntil { state.transportDropCalled }
+
+        // Advance past 3 sleeps: 1 for the possibly-still-pending ping loop
+        // sleep, plus 1 per retry backoff delay (2 retries).
         await sleeper.advance(count: 3)
 
         try await waitUntil(timeout: 5) {
