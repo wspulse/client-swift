@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 // MARK: - ReconnectTests
 
@@ -38,6 +39,7 @@ final class ReconnectTests: XCTestCase {
         let state = TestState()
         let transport1 = MockTransport()
         let transport2 = MockTransport()
+        let sleeper = FakeSleeper()
 
         let dialer = MockDialerTransport(
             transports: [transport1, transport2]
@@ -56,7 +58,8 @@ final class ReconnectTests: XCTestCase {
                     maxDelay: .milliseconds(50)
                 )
             ),
-            transport: dialer
+            transport: dialer,
+            sleeper: sleeper
         )
         try await client.connect()
 
@@ -68,7 +71,11 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        try await waitUntil(timeout: 10) {
+        // Advance past both sleeps: 1 for the ping loop that was running during
+        // the initial connection, 1 for the reconnect backoff delay itself.
+        await sleeper.advance(count: 2)
+
+        try await waitUntil(timeout: 5) {
             state.transportRestoreCount >= 1
         }
 
@@ -88,6 +95,7 @@ final class ReconnectTests: XCTestCase {
     func testFiresRetriesExhaustedAfterMaxRetries() async throws {
         let state = TestState()
         let transport1 = MockTransport()
+        let sleeper = FakeSleeper()
 
         let dialer = MockDialerTransport(
             transports: [transport1],
@@ -111,7 +119,8 @@ final class ReconnectTests: XCTestCase {
                     maxDelay: .milliseconds(50)
                 )
             ),
-            transport: dialer
+            transport: dialer,
+            sleeper: sleeper
         )
         try await client.connect()
 
@@ -119,7 +128,11 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        try await waitUntil(timeout: 10) {
+        // Advance past 3 sleeps: 1 for the ping loop that was running during
+        // the initial connection, plus 1 per retry backoff delay (2 retries).
+        await sleeper.advance(count: 3)
+
+        try await waitUntil(timeout: 5) {
             state.disconnectCalled
         }
 
@@ -135,8 +148,7 @@ final class ReconnectTests: XCTestCase {
 
     // MARK: - close() during reconnect
 
-    func testCloseDuringReconnectFiresDisconnectNil(
-    ) async throws {
+    func testCloseDuringReconnectFiresDisconnectNil() async throws {
         let state = TestState()
         let transport1 = MockTransport()
         let clientRef = Ref<WspulseClient>()

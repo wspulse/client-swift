@@ -1,7 +1,8 @@
 import Foundation
 import os
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// A WebSocket client with optional automatic reconnection.
@@ -16,6 +17,8 @@ public actor WspulseClient {
     let url: URL
     let options: WspulseClientOptions
     let connection: any TransportProtocol
+    let sleeper: any Sleeper
+    let randomJitter: @Sendable () -> Double
     let doneContinuation: AsyncStream<Void>.Continuation
 
     var closed = false
@@ -44,6 +47,8 @@ public actor WspulseClient {
         self.options = options
         self.sendBufferMax = options.sendBufferSize
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
+        self.sleeper = RealSleeper()
+        self.randomJitter = { Double.random(in: 0.5...1.0) }
 
         var cont: AsyncStream<Void>.Continuation!
         self.done = AsyncStream<Void> { cont = $0 }
@@ -55,11 +60,19 @@ public actor WspulseClient {
     }
 
     /// Internal initializer for testing with a custom transport.
-    init(url: URL, options: WspulseClientOptions, transport: any TransportProtocol) {
+    init(
+        url: URL,
+        options: WspulseClientOptions,
+        transport: any TransportProtocol,
+        sleeper: any Sleeper = RealSleeper(),
+        randomJitter: @escaping @Sendable () -> Double = { Double.random(in: 0.5...1.0) }
+    ) {
         self.url = Self.normalizeScheme(url)
         self.options = options
         self.sendBufferMax = options.sendBufferSize
         self.connection = transport
+        self.sleeper = sleeper
+        self.randomJitter = randomJitter
 
         var cont: AsyncStream<Void>.Continuation!
         self.done = AsyncStream<Void> { cont = $0 }
@@ -136,9 +149,11 @@ public actor WspulseClient {
     /// because `URLSessionWebSocketTask` raises an uncatchable
     /// `NSException` for non-ws/wss schemes.
     private static func normalizeScheme(_ url: URL) -> URL {
-        guard var components = URLComponents(
-            url: url, resolvingAgainstBaseURL: false
-        ) else {
+        guard
+            var components = URLComponents(
+                url: url, resolvingAgainstBaseURL: false
+            )
+        else {
             preconditionFailure("wspulse: failed to parse URL")
         }
 

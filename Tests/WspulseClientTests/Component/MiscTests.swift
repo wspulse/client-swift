@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 // MARK: - MiscTests
 
@@ -104,13 +105,14 @@ final class MiscTests: XCTestCase {
             for senderIdx in 0..<senders {
                 grp.addTask {
                     for msgIdx in 0..<msgsPerSender {
-                        try await client.send(Frame(
-                            event: "concurrent",
-                            payload: .object([
-                                "s": .number(Double(senderIdx)),
-                                "m": .number(Double(msgIdx)),
-                            ])
-                        ))
+                        try await client.send(
+                            Frame(
+                                event: "concurrent",
+                                payload: .object([
+                                    "s": .number(Double(senderIdx)),
+                                    "m": .number(Double(msgIdx)),
+                                ])
+                            ))
                     }
                 }
             }
@@ -143,6 +145,7 @@ final class MiscTests: XCTestCase {
     func testPongTimeoutTriggersConnectionLost() async throws {
         let state = TestState()
         let transport = MockTransport()
+        let sleeper = FakeSleeper()
         await transport.suppressPongs()
 
         let client = WspulseClient(
@@ -154,11 +157,17 @@ final class MiscTests: XCTestCase {
                     pongWait: .milliseconds(200)
                 )
             ),
-            transport: transport
+            transport: transport,
+            sleeper: sleeper
         )
         try await client.connect()
 
-        try await waitUntil(timeout: 10) {
+        // Advance past ping period to trigger the first ping.
+        await sleeper.advance()
+        // Advance past pong wait to trigger connection lost.
+        await sleeper.advance()
+
+        try await waitUntil(timeout: 5) {
             state.disconnectCalled
         }
 

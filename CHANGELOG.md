@@ -8,6 +8,11 @@
 - `sendBufferSize` option — configurable outbound buffer capacity [1, 4096], default 256
 - Internal `TransportProtocol` for WebSocket transport abstraction (enables mock-based testing)
 - 17 deterministic component tests using `MockTransport` — zero network I/O, no testserver dependency
+- `Sleeper` protocol (`sleep(for:) async throws`) with `RealSleeper` production wrapper
+- `sleeper:` and `randomJitter:` parameters on the internal `WspulseClient` initializer for test injection
+- `backoff()` receives an injectable `randomJitter:` closure for deterministic jitter in tests
+- `FakeSleeper` actor in the test target: credit-based, handles `advance()` called before or after `sleep(for:)`, supports cooperative task cancellation so cancelled tasks exit cleanly
+- Pong-timeout and reconnect component tests now use virtual sleeps instead of real-time waits
 
 ### Changed
 
