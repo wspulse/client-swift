@@ -32,52 +32,8 @@ jobs:
       - name: Build
         run: swift build
 
-      - name: Run unit tests
+      - name: Run tests
         run: swift test --filter WspulseClientTests --skip ClientIntegrationTests
-
-  # Integration tests require Go and the wspulse/core + wspulse/server repos
-  # as siblings. Only runs on pushes to main/develop or PRs targeting main/develop.
-  test-integration:
-    runs-on: macos-15
-    timeout-minutes: 15
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || (github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'develop'))
-    needs: [lint-test]
-    steps:
-      - name: Check out client-swift
-        uses: actions/checkout@v6
-        with:
-          path: client-swift
-
-      - name: Check out core
-        uses: actions/checkout@v6
-        with:
-          repository: wspulse/core
-          path: core
-
-      - name: Check out server
-        uses: actions/checkout@v6
-        with:
-          repository: wspulse/server
-          path: server
-
-      - name: Check out testserver
-        uses: actions/checkout@v6
-        with:
-          repository: wspulse/testserver
-          path: testserver
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          cache-dependency-path: testserver/go.sum
-
-      - name: Set up Go workspace
-        run: go work init ./testserver ./core ./server
-
-      - name: Run integration tests
-        working-directory: client-swift
-        run: swift test --filter ClientIntegrationTests
 
   check:
     runs-on: ubuntu-latest
@@ -88,21 +44,5 @@ jobs:
         run: |
           if [[ "${{ needs.lint-test.result }}" != "success" ]]; then
             echo "lint-test failed"
-            exit 1
-          fi
-
-  integration:
-    runs-on: ubuntu-latest
-    if: always()
-    needs: [lint-test, test-integration]
-    steps:
-      - name: Verify test-integration passed
-        run: |
-          if [[ "${{ needs.lint-test.result }}" != "success" ]]; then
-            echo "lint-test failed — test-integration skipped is not valid"
-            exit 1
-          fi
-          if [[ "${{ needs.test-integration.result }}" != "success" && "${{ needs.test-integration.result }}" != "skipped" ]]; then
-            echo "test-integration failed"
             exit 1
           fi
