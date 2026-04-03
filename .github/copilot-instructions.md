@@ -19,11 +19,10 @@ wspulse/client-swift is a **WebSocket client library for Apple platforms** (iOS 
 
 ```bash
 make build      # swift build
-make test       # unit tests (excludes integration)
-make test-integration  # integration tests (requires Go testserver)
+make test       # unit + component tests (excludes legacy integration)
 make lint       # SwiftLint --strict
 make fmt        # SwiftLint --fix
-make check      # lint + unit test (pre-commit gate)
+make check      # lint + test (pre-commit gate)
 make clean      # swift package clean
 ```
 
@@ -47,7 +46,7 @@ make clean      # swift package clean
     - `chore/<name>` — maintenance, CI/CD, dependencies, docs
     - CI triggers on all branch prefixes above and on PRs targeting `main`/`develop`. Tags do **not** trigger CI (the tag is created after CI already passed). Open a PR into `develop`; `develop` requires status checks to pass.
   - **Pull request description**: must follow the repo's `.github/PULL_REQUEST_TEMPLATE.md`. Fill in every section (Summary, Changes, Checklist). Do not invent custom formats.
-- **Tests**: in `Tests/WspulseClientTests/`. Cover happy path and at least one error path. Required for new public functions. Integration tests use a Go echo server from `testserver/`.
+- **Tests**: in `Tests/WspulseClientTests/`. Cover happy path and at least one error path. Required for new public functions. Component tests use `MockTransport` (via `TransportProtocol`) for deterministic testing without network I/O.
   - **Test-first for bug fixes**: **mandatory** — see Critical Rule 8 for the required step-by-step procedure. Do not touch production code without a prior failing test.
 - **API compatibility**:
   - Public symbols are a contract. Changing or removing any public identifier is a breaking change requiring a major version bump.

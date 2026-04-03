@@ -90,7 +90,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 }
 
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
-actor ConnectionActor {
+actor ConnectionActor: TransportProtocol {
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
     private var connectionDelegate: ConnectionDelegate?

@@ -6,6 +6,12 @@
 
 - `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` (case-insensitive per RFC 3986). Unsupported or missing schemes trigger precondition failure.
 - `sendBufferSize` option — configurable outbound buffer capacity [1, 4096], default 256
+- Internal `TransportProtocol` for WebSocket transport abstraction (enables mock-based testing)
+- 17 deterministic component tests using `MockTransport` — zero network I/O, no testserver dependency
+
+### Changed
+
+- CI no longer runs integration tests (`test-integration` job removed); component tests cover all scenarios
 
 ### Removed
 

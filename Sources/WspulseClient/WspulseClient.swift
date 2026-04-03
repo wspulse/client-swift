@@ -15,7 +15,7 @@ public actor WspulseClient {
 
     let url: URL
     let options: WspulseClientOptions
-    let connection: ConnectionActor
+    let connection: any TransportProtocol
     let doneContinuation: AsyncStream<Void>.Continuation
 
     var closed = false
@@ -44,6 +44,22 @@ public actor WspulseClient {
         self.options = options
         self.sendBufferMax = options.sendBufferSize
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
+
+        var cont: AsyncStream<Void>.Continuation!
+        self.done = AsyncStream<Void> { cont = $0 }
+        self.doneContinuation = cont
+
+        var writeCont: AsyncStream<Void>.Continuation!
+        self.writeSignal = AsyncStream<Void> { writeCont = $0 }
+        self.writeSignalContinuation = writeCont
+    }
+
+    /// Internal initializer for testing with a custom transport.
+    init(url: URL, options: WspulseClientOptions, transport: any TransportProtocol) {
+        self.url = Self.normalizeScheme(url)
+        self.options = options
+        self.sendBufferMax = options.sendBufferSize
+        self.connection = transport
 
         var cont: AsyncStream<Void>.Continuation!
         self.done = AsyncStream<Void> { cont = $0 }
