@@ -7,9 +7,11 @@ Component tests use a `MockTransport` actor (zero network I/O) injected via
 `TransportProtocol`. No live testserver is required.
 
 **Test classes:**
-- `ClientComponentTests` (scenarios 1-5)
-- `ClientComponentTestsMore` (scenarios 6-9)
-- `ClientComponentTestsExtras` (additional scenarios)
+- `BasicTests` (connect, send, receive, close)
+- `CallbackTests` (transport drop, disconnect, restore callbacks)
+- `LifecycleTests` (close during reconnect, idempotent close, dial rejection)
+- `MiscTests` (frame fidelity, ordering, query params, concurrent sends)
+- `ReconnectTests` (auto-reconnect, retries exhausted, pong timeout)
 
 **Run:** `swift test --filter WspulseClientTests --skip ClientIntegrationTests` (or `make test`)
 
