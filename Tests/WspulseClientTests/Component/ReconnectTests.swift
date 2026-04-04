@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 // MARK: - ReconnectTests
 
@@ -38,6 +39,7 @@ final class ReconnectTests: XCTestCase {
         let state = TestState()
         let transport1 = MockTransport()
         let transport2 = MockTransport()
+        let sleeper = FakeSleeper()
 
         let dialer = MockDialerTransport(
             transports: [transport1, transport2]
@@ -50,13 +52,15 @@ final class ReconnectTests: XCTestCase {
                 onTransportRestore: {
                     state.addTransportRestore()
                 },
+                onTransportDrop: { state.addTransportDrop($0) },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 5,
                     baseDelay: .milliseconds(10),
                     maxDelay: .milliseconds(50)
                 )
             ),
-            transport: dialer
+            transport: dialer,
+            sleeper: sleeper
         )
         try await client.connect()
 
@@ -68,7 +72,15 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        try await waitUntil(timeout: 10) {
+        // Wait for transport drop before advancing: ensures ping task is
+        // cancelled so its pending sleep won't consume reconnect credits.
+        try await waitUntil { state.transportDropCalled }
+
+        // Advance past sleeps: 1 for the possibly-still-pending ping loop
+        // sleep, 1 for the reconnect backoff delay.
+        await sleeper.advance(count: 2)
+
+        try await waitUntil(timeout: 5) {
             state.transportRestoreCount >= 1
         }
 
@@ -88,6 +100,7 @@ final class ReconnectTests: XCTestCase {
     func testFiresRetriesExhaustedAfterMaxRetries() async throws {
         let state = TestState()
         let transport1 = MockTransport()
+        let sleeper = FakeSleeper()
 
         let dialer = MockDialerTransport(
             transports: [transport1],
@@ -105,13 +118,15 @@ final class ReconnectTests: XCTestCase {
             url: URL(string: "ws://127.0.0.1:9999")!,
             options: WspulseClientOptions(
                 onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 2,
                     baseDelay: .milliseconds(10),
                     maxDelay: .milliseconds(50)
                 )
             ),
-            transport: dialer
+            transport: dialer,
+            sleeper: sleeper
         )
         try await client.connect()
 
@@ -119,7 +134,15 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        try await waitUntil(timeout: 10) {
+        // Wait for transport drop before advancing: ensures ping task is
+        // cancelled so its pending sleep won't consume reconnect credits.
+        try await waitUntil { state.transportDropCalled }
+
+        // Advance past 3 sleeps: 1 for the possibly-still-pending ping loop
+        // sleep, plus 1 per retry backoff delay (2 retries).
+        await sleeper.advance(count: 3)
+
+        try await waitUntil(timeout: 5) {
             state.disconnectCalled
         }
 
@@ -135,8 +158,7 @@ final class ReconnectTests: XCTestCase {
 
     // MARK: - close() during reconnect
 
-    func testCloseDuringReconnectFiresDisconnectNil(
-    ) async throws {
+    func testCloseDuringReconnectFiresDisconnectNil() async throws {
         let state = TestState()
         let transport1 = MockTransport()
         let clientRef = Ref<WspulseClient>()
