@@ -4,7 +4,7 @@
 
 ### Changed
 
-- **BREAKING**: `onTransportDrop` callback signature changed from `(@Sendable (Error) -> Void)?` to `(@Sendable (Error?) -> Void)?`. The callback now fires on user-initiated close with `nil`, guaranteeing it always fires exactly once per connection lifecycle.
+- **BREAKING**: `onTransportDrop` callback signature changed from `(@Sendable (Error) -> Void)?` to `(@Sendable (Error?) -> Void)?`. The callback now fires on user-initiated close with `nil`, guaranteeing exactly one invocation per transport lifecycle. In reconnect scenarios each transport drop produces one invocation; a subsequent clean `close()` produces one more.
 
 ---
 
