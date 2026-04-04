@@ -13,63 +13,63 @@ import Foundation
 /// while suspended in `sleep(for:)`, the continuation is removed and resumed
 /// with `CancellationError` so the task can exit promptly.
 actor FakeSleeper: Sleeper {
-	private struct Waiter {
-		let id: UUID
-		let cont: CheckedContinuation<Void, Error>
-	}
+    private struct Waiter {
+        let id: UUID
+        let cont: CheckedContinuation<Void, Error>
+    }
 
-	private var credits = 0
-	private var pending: [Waiter] = []
+    private var credits = 0
+    private var pending: [Waiter] = []
 
-	/// Number of `sleep()` calls currently waiting to be resumed.
-	var pendingCount: Int { pending.count }
+    /// Number of `sleep()` calls currently waiting to be resumed.
+    var pendingCount: Int { pending.count }
 
-	// MARK: - Sleeper
+    // MARK: - Sleeper
 
-	func sleep(for _: Duration) async throws {
-		try Task.checkCancellation()
-		if credits > 0 {
-			credits -= 1
-			return
-		}
-		let id = UUID()
-		try await withTaskCancellationHandler {
-			try await withCheckedThrowingContinuation { cont in
-				pending.append(Waiter(id: id, cont: cont))
-			}
-		} onCancel: {
-			// Schedule cancellation on the actor; the Task may run before or
-			// after the continuation is appended — the id lookup is safe either way.
-			Task { await self.cancel(id: id) }
-		}
-	}
+    func sleep(for _: Duration) async throws {
+        try Task.checkCancellation()
+        if credits > 0 {
+            credits -= 1
+            return
+        }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { cont in
+                pending.append(Waiter(id: id, cont: cont))
+            }
+        } onCancel: {
+            // Schedule cancellation on the actor; the Task may run before or
+            // after the continuation is appended — the id lookup is safe either way.
+            Task { await self.cancel(id: id) }
+        }
+    }
 
-	// MARK: - Test helpers
+    // MARK: - Test helpers
 
-	/// Resume `count` pending sleeps (or bank credits for future sleeps).
-	func advance(count: Int = 1) {
-		for _ in 0..<count {
-			if !pending.isEmpty {
-				pending.removeFirst().cont.resume()
-			} else {
-				credits += 1
-			}
-		}
-	}
+    /// Resume `count` pending sleeps (or bank credits for future sleeps).
+    func advance(count: Int = 1) {
+        for _ in 0..<count {
+            if !pending.isEmpty {
+                pending.removeFirst().cont.resume()
+            } else {
+                credits += 1
+            }
+        }
+    }
 
-	/// Cancel all pending sleeps with `CancellationError`.
-	func cancelAll() {
-		credits = 0
-		let waiters = pending
-		pending.removeAll()
-		for waiter in waiters { waiter.cont.resume(throwing: CancellationError()) }
-	}
+    /// Cancel all pending sleeps with `CancellationError`.
+    func cancelAll() {
+        credits = 0
+        let waiters = pending
+        pending.removeAll()
+        for waiter in waiters { waiter.cont.resume(throwing: CancellationError()) }
+    }
 
-	// MARK: - Private
+    // MARK: - Private
 
-	private func cancel(id: UUID) {
-		guard let idx = pending.firstIndex(where: { $0.id == id }) else { return }
-		let cont = pending.remove(at: idx).cont
-		cont.resume(throwing: CancellationError())
-	}
+    private func cancel(id: UUID) {
+        guard let idx = pending.firstIndex(where: { $0.id == id }) else { return }
+        let cont = pending.remove(at: idx).cont
+        cont.resume(throwing: CancellationError())
+    }
 }
