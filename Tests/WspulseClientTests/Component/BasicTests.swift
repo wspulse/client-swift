@@ -42,7 +42,8 @@ final class BasicTests: XCTestCase {
             url: URL(string: "ws://127.0.0.1:9999")!,
             options: WspulseClientOptions(
                 onMessage: { state.addReceived($0) },
-                onDisconnect: { state.addDisconnect($0) }
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
             ),
             transport: transport
         )
@@ -68,6 +69,13 @@ final class BasicTests: XCTestCase {
         for await _ in client.done {}
         XCTAssertEqual(state.disconnectCount, 1)
         XCTAssertNil(state.firstDisconnectErr)
+        XCTAssertEqual(state.transportDropCount, 1)
+        // Clean close fires onTransportDrop with nil.
+        if case .some(.none) = state.firstTransportDropErr {
+            // ok — nil error
+        } else {
+            XCTFail("Expected onTransportDrop to fire with nil on clean close")
+        }
     }
 
     // MARK: - Frame field round-trip

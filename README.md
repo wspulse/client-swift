@@ -231,7 +231,7 @@ Default: `JSONCodec` (JSON text frames).
 | `onMessage`       | `@Sendable (Frame) -> Void`  | no-op       | Called for every inbound frame.             |
 | `onDisconnect`    | `@Sendable (Error?) -> Void` | no-op       | Called on permanent disconnect.             |
 | `onReconnect`     | `@Sendable (Int) -> Void`    | no-op       | Called at each reconnect attempt (0-based). |
-| `onTransportDrop` | `@Sendable (Error) -> Void`  | no-op       | Called when the transport drops.            |
+| `onTransportDrop` | `@Sendable (Error?) -> Void` | no-op       | Called on transport drop or clean `close()` (`nil` = clean). |
 | `autoReconnect`   | `AutoReconnectOptions?`      | `nil` (off) | Enable exponential backoff reconnect.       |
 | `heartbeat`       | `HeartbeatOptions`           | 20s / 60s   | Client-side Ping/Pong interval.             |
 | `writeWait`       | `Duration`                   | 10s         | Deadline for a single write operation.      |
@@ -280,7 +280,7 @@ let options = WspulseClientOptions(
 ## Features
 
 - **Auto-reconnect** — exponential backoff with configurable max retries, base delay, and max delay. Equal jitter formula: delay ∈ `[half, full]` where full = min(base × 2^attempt, max).
-- **Transport drop callback** — `onTransportDrop` fires on every transport death, even when auto-reconnect follows. Useful for metrics and logging.
+- **Transport drop callback** — `onTransportDrop` fires on every transport death (even when auto-reconnect follows) and on clean `close()` with `nil`. Exactly one invocation per transport lifecycle. Useful for metrics and logging.
 - **Permanent disconnect callback** — `onDisconnect` fires exactly once when the client is truly done (`close()` called, retries exhausted, or connection lost without auto-reconnect).
 - **Heartbeat** — Client-side Ping/Pong keeps the connection alive and detects silently-dead servers.
 - **Max message size** — Inbound messages exceeding `maxMessageSize` bytes drop the connection.

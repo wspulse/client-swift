@@ -92,7 +92,13 @@ final class ReconnectTests: XCTestCase {
             state.received.contains { $0.event == "after" }
         )
 
+        // One transportDrop for the injected error.
+        XCTAssertEqual(state.transportDropCount, 1)
+
         await client.close()
+
+        // close() fires a second onTransportDrop(nil) for the clean shutdown.
+        XCTAssertEqual(state.transportDropCount, 2)
     }
 
     // MARK: - Max retries exhausted

@@ -185,6 +185,7 @@ public actor WspulseClient {
     /// Idempotent: calling more than once is safe.
     public func close() async {
         guard !closed else { return }
+        let wasReconnecting = reconnecting
         closed = true
         reconnecting = false
 
@@ -211,10 +212,16 @@ public actor WspulseClient {
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
 
-        // Only fire onDisconnect if the client was previously connected.
+        // Only fire callbacks if the client was previously connected.
         // Per the behaviour contract, no callbacks fire if connect() was
         // never called or if the initial dial failed.
         if started {
+            // On clean close while CONNECTED, fire onTransportDrop(nil)
+            // before onDisconnect. When close() is called while reconnecting,
+            // handleTransportDrop already fired — do not fire again.
+            if !wasReconnecting {
+                options.onTransportDrop?(nil)
+            }
             options.onDisconnect?(nil)
         }
         doneContinuation.yield()
