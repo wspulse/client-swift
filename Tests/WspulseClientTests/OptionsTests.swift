@@ -142,6 +142,16 @@ final class OptionsTests: XCTestCase {
         wait(for: [expectation], timeout: 1)
     }
 
+    func testOnTransportDropCallbackAcceptsNil() {
+        let expectation = XCTestExpectation(description: "onTransportDrop called with nil")
+        let opts = WspulseClientOptions(onTransportDrop: { error in
+            XCTAssertNil(error)
+            expectation.fulfill()
+        })
+        opts.onTransportDrop?(nil)
+        wait(for: [expectation], timeout: 1)
+    }
+
     // MARK: - Max boundary values (should NOT crash)
 
     func testHeartbeatMaxBoundaryValues() {

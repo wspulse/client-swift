@@ -72,7 +72,9 @@ public struct WspulseClientOptions: Sendable {
     public var onTransportRestore: (@Sendable () -> Void)?
 
     /// Called each time the underlying transport drops (before any reconnect).
-    public var onTransportDrop: (@Sendable (Error) -> Void)?
+    /// Also fires with `nil` on user-initiated close, guaranteeing exactly one
+    /// invocation per connection lifecycle.
+    public var onTransportDrop: (@Sendable (Error?) -> Void)?
 
     /// Enable exponential backoff reconnect. `nil` = disabled.
     public var autoReconnect: AutoReconnectOptions?
@@ -102,7 +104,7 @@ public struct WspulseClientOptions: Sendable {
         onMessage: (@Sendable (Frame) -> Void)? = nil,
         onDisconnect: (@Sendable (Error?) -> Void)? = nil,
         onTransportRestore: (@Sendable () -> Void)? = nil,
-        onTransportDrop: (@Sendable (Error) -> Void)? = nil,
+        onTransportDrop: (@Sendable (Error?) -> Void)? = nil,
         autoReconnect: AutoReconnectOptions? = nil,
         heartbeat: HeartbeatOptions = HeartbeatOptions(),
         writeWait: Duration = .seconds(10),

@@ -131,4 +131,34 @@ final class CallbackTests: XCTestCase {
 
         await client.close()
     }
+
+    // MARK: - Clean close fires onTransportDrop(nil) before onDisconnect(nil)
+
+    func testCleanCloseFiresTransportDropNilBeforeDisconnect(
+    ) async throws {
+        let order = OrderTracker()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { _ in order.record("disconnect") },
+                onTransportDrop: { err in
+                    XCTAssertNil(err, "onTransportDrop should receive nil on clean close")
+                    order.record("transportDrop")
+                }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        await client.close()
+        for await _ in client.done {}
+
+        XCTAssertEqual(
+            order.events,
+            ["transportDrop", "disconnect"],
+            "onTransportDrop(nil) must fire before onDisconnect(nil)"
+        )
+    }
 }

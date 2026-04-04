@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: `onTransportDrop` callback signature changed from `(@Sendable (Error) -> Void)?` to `(@Sendable (Error?) -> Void)?`. The callback now fires on user-initiated close with `nil`, guaranteeing it always fires exactly once per connection lifecycle.
+
 ---
 
 ## [0.4.0] - 2026-04-04
