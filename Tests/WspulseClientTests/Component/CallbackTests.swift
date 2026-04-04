@@ -127,7 +127,6 @@ final class CallbackTests: XCTestCase {
         )
         try await client.connect()
 
-        try await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(state.transportRestoreCount, 0)
 
         await client.close()
