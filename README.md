@@ -309,8 +309,7 @@ Matches `client-go` exactly. Any deviation is a bug.
 ```bash
 make fmt              # auto-format with SwiftLint --fix
 make check            # lint + unit tests (pre-commit gate)
-make test             # unit tests only (no testserver required)
-make test-integration # integration tests against Go testserver
+make test             # unit + component tests
 make clean            # remove build artifacts
 ```
 

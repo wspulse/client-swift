@@ -1,4 +1,4 @@
-.PHONY: help build test test-integration lint fmt check clean
+.PHONY: help build test lint fmt check clean
 
 # Default target
 help: ## Show available commands
@@ -8,11 +8,8 @@ help: ## Show available commands
 build: ## Build the package
 	@swift build
 
-test: ## Run unit tests
-	@swift test --filter WspulseClientTests --skip ClientIntegrationTests
-
-test-integration: ## Run integration tests (requires Go testserver)
-	@swift test --filter ClientIntegrationTests
+test: ## Run unit + component tests
+	@swift test --filter WspulseClientTests
 
 lint: ## Run SwiftLint checks
 	@swiftlint lint --strict
