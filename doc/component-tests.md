@@ -1,7 +1,7 @@
 # Component Test Coverage -- client-swift
 
 > **Contract:** all scenarios defined in the
-> [integration-test-scenarios contract](https://github.com/wspulse/.github/blob/main/doc/contracts/client/integration-test-scenarios.md)
+> [test-scenarios contract](https://github.com/wspulse/.github/blob/main/doc/contracts/client/test-scenarios.md)
 
 Component tests use a `MockTransport` actor (zero network I/O) injected via
 `TransportProtocol`. No live testserver is required.
