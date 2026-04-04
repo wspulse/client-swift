@@ -22,14 +22,22 @@ public struct AutoReconnectOptions: Sendable {
     /// Maximum backoff delay cap. Must be >= `baseDelay`. Range: [baseDelay, 5m].
     public var maxDelay: Duration
 
-    public init(maxRetries: Int = 0, baseDelay: Duration = .seconds(1), maxDelay: Duration = .seconds(30)) {
+    public init(
+        maxRetries: Int = 0, baseDelay: Duration = .seconds(1), maxDelay: Duration = .seconds(30)
+    ) {
         precondition(maxRetries >= 0, "wspulse: autoReconnect.maxRetries must be non-negative")
         precondition(baseDelay > .zero, "wspulse: autoReconnect.baseDelay must be positive")
-        precondition(baseDelay <= maxBaseDelay, "wspulse: autoReconnect.baseDelay exceeds maximum (1m)")
-        precondition(maxDelay >= baseDelay, "wspulse: autoReconnect.maxDelay must be >= autoReconnect.baseDelay")
-        precondition(maxDelay <= maxDelayLimit, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
+        precondition(
+            baseDelay <= maxBaseDelay, "wspulse: autoReconnect.baseDelay exceeds maximum (1m)")
+        precondition(
+            maxDelay >= baseDelay,
+            "wspulse: autoReconnect.maxDelay must be >= autoReconnect.baseDelay")
+        precondition(
+            maxDelay <= maxDelayLimit, "wspulse: autoReconnect.maxDelay exceeds maximum (5m)")
         if maxRetries > 0 {
-            precondition(maxRetries <= maxRetriesLimit, "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
+            precondition(
+                maxRetries <= maxRetriesLimit,
+                "wspulse: autoReconnect.maxRetries exceeds maximum (32)")
         }
         self.maxRetries = maxRetries
         self.baseDelay = baseDelay
@@ -47,7 +55,8 @@ public struct HeartbeatOptions: Sendable {
 
     public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
         precondition(pingPeriod > .zero, "wspulse: heartbeat.pingPeriod must be positive")
-        precondition(pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
+        precondition(
+            pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
         precondition(pongWait > .zero, "wspulse: heartbeat.pongWait must be positive")
         precondition(pongWait <= maxPongWait, "wspulse: heartbeat.pongWait exceeds maximum (2m)")
         precondition(
@@ -72,8 +81,10 @@ public struct WspulseClientOptions: Sendable {
     public var onTransportRestore: (@Sendable () -> Void)?
 
     /// Called each time the underlying transport drops (before any reconnect).
-    /// Also fires with `nil` on user-initiated close, guaranteeing exactly one
-    /// invocation per connection lifecycle.
+    /// Also fires with `nil` on user-initiated ``WspulseClient/close()`` when
+    /// closing an active transport. If the transport already dropped and the
+    /// reconnect loop is active, a subsequent ``WspulseClient/close()`` does
+    /// not emit another `nil` — exactly one invocation per transport lifecycle.
     public var onTransportDrop: (@Sendable (Error?) -> Void)?
 
     /// Enable exponential backoff reconnect. `nil` = disabled.
@@ -115,7 +126,8 @@ public struct WspulseClientOptions: Sendable {
         logger: os.Logger = Logger(subsystem: "com.wspulse", category: "WspulseClient")
     ) {
         precondition(maxMessageSize >= 0, "wspulse: maxMessageSize must be non-negative")
-        precondition(maxMessageSize <= maxMsgSizeBytes, "wspulse: maxMessageSize exceeds maximum (64 MiB)")
+        precondition(
+            maxMessageSize <= maxMsgSizeBytes, "wspulse: maxMessageSize exceeds maximum (64 MiB)")
         precondition(writeWait > .zero, "wspulse: writeWait must be positive")
         precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
         precondition(sendBufferSize >= 1, "wspulse: sendBufferSize must be at least 1")
