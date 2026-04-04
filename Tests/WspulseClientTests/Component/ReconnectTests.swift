@@ -52,6 +52,7 @@ final class ReconnectTests: XCTestCase {
                 onTransportRestore: {
                     state.addTransportRestore()
                 },
+                onTransportDrop: { state.addTransportDrop($0) },
                 autoReconnect: AutoReconnectOptions(
                     maxRetries: 5,
                     baseDelay: .milliseconds(10),
@@ -71,8 +72,12 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        // Advance past both sleeps: 1 for the ping loop that was running during
-        // the initial connection, 1 for the reconnect backoff delay itself.
+        // Wait for transport drop before advancing: ensures ping task is
+        // cancelled so its pending sleep won't consume reconnect credits.
+        try await waitUntil { state.transportDropCalled }
+
+        // Advance past sleeps: 1 for the possibly-still-pending ping loop
+        // sleep, 1 for the reconnect backoff delay.
         await sleeper.advance(count: 2)
 
         try await waitUntil(timeout: 5) {
