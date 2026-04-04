@@ -8,7 +8,7 @@ help: ## Show available commands
 build: ## Build the package
 	@swift build
 
-test: ## Run unit tests
+test: ## Run unit + component tests
 	@swift test --filter WspulseClientTests
 
 lint: ## Run SwiftLint checks

@@ -32,6 +32,11 @@ final class TestState: @unchecked Sendable {
 
 /// Reference box for capturing a value in a `@Sendable` closure.
 final class Ref<T>: @unchecked Sendable {
-    var value: T?
-    init(_ val: T? = nil) { value = val }
+    private let lock = NSLock()
+    private var _value: T?
+    var value: T? {
+        get { lock.withLock { _value } }
+        set { lock.withLock { _value = newValue } }
+    }
+    init(_ val: T? = nil) { _value = val }
 }
