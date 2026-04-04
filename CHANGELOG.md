@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+---
+
+## [0.4.0] - 2026-04-04
+
 ### Added
 
 - `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` (case-insensitive per RFC 3986). Unsupported or missing schemes trigger precondition failure.
@@ -82,6 +86,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/wspulse/client-swift/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/wspulse/client-swift/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/wspulse/client-swift/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wspulse/client-swift/releases/tag/v0.1.0
