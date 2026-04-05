@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 final class BackoffTests: XCTestCase {
     func testAttemptZeroReturnsWithinRange() {

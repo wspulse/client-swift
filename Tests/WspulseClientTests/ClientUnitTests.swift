@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 final class ClientUnitTests: XCTestCase {
     // MARK: - Send on closed client
@@ -160,7 +161,8 @@ final class ClientUnitTests: XCTestCase {
             )
         )
         await client.close()
-        XCTAssertEqual(state.count, 0, "onDisconnect must not fire when close() is called before connect()")
+        XCTAssertEqual(
+            state.count, 0, "onDisconnect must not fire when close() is called before connect()")
     }
 
     // MARK: - send() throws sendBufferFull when buffer is full

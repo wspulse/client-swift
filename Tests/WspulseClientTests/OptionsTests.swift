@@ -36,7 +36,8 @@ final class OptionsTests: XCTestCase {
     func testCustomOptionsValues() {
         let opts = WspulseClientOptions(
             onMessage: { _ in },
-            autoReconnect: AutoReconnectOptions(maxRetries: 5, baseDelay: .seconds(2), maxDelay: .seconds(60)),
+            autoReconnect: AutoReconnectOptions(
+                maxRetries: 5, baseDelay: .seconds(2), maxDelay: .seconds(60)),
             heartbeat: HeartbeatOptions(pingPeriod: .seconds(10), pongWait: .seconds(30)),
             writeWait: .seconds(5),
             maxMessageSize: 2_097_152,
@@ -161,7 +162,8 @@ final class OptionsTests: XCTestCase {
     }
 
     func testAutoReconnectMaxBoundaryValues() {
-        let reconnect = AutoReconnectOptions(maxRetries: 32, baseDelay: .seconds(60), maxDelay: .seconds(300))
+        let reconnect = AutoReconnectOptions(
+            maxRetries: 32, baseDelay: .seconds(60), maxDelay: .seconds(300))
         XCTAssertEqual(reconnect.maxRetries, 32)
         XCTAssertEqual(reconnect.baseDelay, .seconds(60))
         XCTAssertEqual(reconnect.maxDelay, .seconds(300))

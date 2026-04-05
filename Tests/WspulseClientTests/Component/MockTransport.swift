@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import WspulseClient
 
 /// Mock transport actor for component tests.

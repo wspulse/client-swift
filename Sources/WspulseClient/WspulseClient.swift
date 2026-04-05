@@ -2,7 +2,7 @@ import Foundation
 import os
 
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// A WebSocket client with optional automatic reconnection.

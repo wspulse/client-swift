@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 // MARK: - LifecycleTests
 
@@ -46,8 +47,7 @@ final class LifecycleTests: XCTestCase {
 
     // MARK: - send() after close throws
 
-    func testSendAfterCloseThrowsConnectionClosed(
-    ) async throws {
+    func testSendAfterCloseThrowsConnectionClosed() async throws {
         let transport = MockTransport()
 
         let client = WspulseClient(
@@ -90,8 +90,7 @@ final class LifecycleTests: XCTestCase {
 
     // MARK: - close() racing with transport drop
 
-    func testCloseRacingWithTransportDropFiresDisconnectOnce(
-    ) async throws {
+    func testCloseRacingWithTransportDropFiresDisconnectOnce() async throws {
         let state = TestState()
         let transport = MockTransport()
 
@@ -128,8 +127,7 @@ final class LifecycleTests: XCTestCase {
 
     // MARK: - close() during in-flight dial does not fire callbacks
 
-    func testCloseDuringInflightDialDoesNotFireCallbacks(
-    ) async throws {
+    func testCloseDuringInflightDialDoesNotFireCallbacks() async throws {
         let state = TestState()
         let transport = MockTransport()
         await transport.setDialSuspended()
@@ -179,8 +177,7 @@ final class LifecycleTests: XCTestCase {
 
     // MARK: - close() during in-flight dial does not start loops
 
-    func testCloseDuringInflightDialDoesNotStartLoops(
-    ) async throws {
+    func testCloseDuringInflightDialDoesNotStartLoops() async throws {
         let state = TestState()
         let transport = MockTransport()
         await transport.setDialSuspended()

@@ -88,7 +88,7 @@ final class FrameTests: XCTestCase {
             "users": .array([
                 .object(["name": .string("Alice"), "age": .number(30)]),
                 .object(["name": .string("Bob"), "age": .null]),
-            ]),
+            ])
         ])
         let data = try encoder.encode(json)
         let decoded = try decoder.decode(AnyJSON.self, from: data)
@@ -281,9 +281,9 @@ final class FrameTests: XCTestCase {
         let json: AnyJSON = .object([
             "level1": .object([
                 "level2": .array([
-                    .object(["level3": .string("deep")]),
-                ]),
-            ]),
+                    .object(["level3": .string("deep")])
+                ])
+            ])
         ])
         let data = try encoder.encode(json)
         let decoded = try decoder.decode(AnyJSON.self, from: data)
