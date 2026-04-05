@@ -16,14 +16,20 @@ cd client-swift
 swift build
 ```
 
-Requires: Swift 5.10+ (Xcode 15.3+ or swift.org toolchain).
+Requires:
+
+- **Swift 5.10+** via **Xcode 15.3+** (recommended) — provides both the compiler and `xcrun swift-format`.
+- Alternatively, the swift.org open-source toolchain; note that `make fmt` requires `swift-format` to be available via `xcrun`, which comes bundled with Xcode but must be installed separately when using the open-source toolchain.
+- **SwiftLint** (`brew install swiftlint`) for `make lint` and `make fmt`.
 
 ## Pre-Commit Checklist
 
 Run `make check` before every commit. It runs in order:
 
-1. `make lint` — runs SwiftLint check; must pass with zero warnings
+1. `make lint` — runs SwiftLint in strict mode; must pass with zero warnings
 2. `make test` — runs unit tests; must pass
+
+To auto-fix formatting, run `make fmt` (requires `xcrun swift-format` + SwiftLint).
 
 If any step fails, do not commit.
 

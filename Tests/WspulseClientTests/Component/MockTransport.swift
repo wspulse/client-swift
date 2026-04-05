@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import WspulseClient
 
 /// Mock transport actor for component tests.
@@ -12,11 +13,22 @@ actor MockTransport: TransportProtocol {
     private var closed = false
     private var pongEnabled = true
     private var dialError: Error?
+    private var dialSuspended = false
+    private var dialContinuation: CheckedContinuation<Void, Error>?
 
     func dial(url: URL, headers: [String: String]) async throws {
         dialCount += 1
         if let error = dialError {
             throw error
+        }
+        if dialSuspended {
+            try await withCheckedThrowingContinuation { cont in
+                precondition(
+                    dialContinuation == nil,
+                    "wspulse: MockTransport already has a suspended dial — call resumeDial() or failDial() first"
+                )
+                dialContinuation = cont
+            }
         }
         closed = false
     }
@@ -54,6 +66,7 @@ actor MockTransport: TransportProtocol {
     func close() {
         closed = true
         failPendingReceives()
+        failPendingDial()
     }
 
     func close(code: URLSessionWebSocketTask.CloseCode) {
@@ -103,9 +116,29 @@ actor MockTransport: TransportProtocol {
         dialError = error
     }
 
+    /// Make dial() suspend until resumeDial() or failDial() is called.
+    func setDialSuspended(_ suspended: Bool = true) {
+        dialSuspended = suspended
+    }
+
+    /// Resume a suspended dial() call with success.
+    func resumeDial() {
+        let cont = dialContinuation
+        dialContinuation = nil
+        cont?.resume()
+    }
+
+    /// Resume a suspended dial() call with an error.
+    func failDial(with error: Error) {
+        let cont = dialContinuation
+        dialContinuation = nil
+        cont?.resume(throwing: error)
+    }
+
     /// Reset closed state (for reuse after close).
     func reset() {
         failPendingReceives()
+        failPendingDial()
         closed = false
         sentData.removeAll()
         receiveQueue.removeAll()
@@ -113,6 +146,7 @@ actor MockTransport: TransportProtocol {
         pingCount = 0
         pongEnabled = true
         dialError = nil
+        dialSuspended = false
     }
 
     /// Whether the transport is currently closed.
@@ -127,6 +161,12 @@ actor MockTransport: TransportProtocol {
         for cont in pending {
             cont.resume(throwing: WspulseError.connectionClosed)
         }
+    }
+
+    private func failPendingDial() {
+        let cont = dialContinuation
+        dialContinuation = nil
+        cont?.resume(throwing: WspulseError.connectionClosed)
     }
 }
 

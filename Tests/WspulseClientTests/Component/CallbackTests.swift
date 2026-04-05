@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 // MARK: - CallbackTests
 
@@ -28,8 +29,7 @@ final class CallbackTests: XCTestCase {
 
     // MARK: - Transport error fires callbacks (no reconnect)
 
-    func testTransportErrorFiresTransportDropAndDisconnect(
-    ) async throws {
+    func testTransportErrorFiresTransportDropAndDisconnect() async throws {
         let state = TestState()
         let transport = MockTransport()
 
@@ -59,8 +59,7 @@ final class CallbackTests: XCTestCase {
 
     // MARK: - onDisconnect fires exactly once on close
 
-    func testOnDisconnectFiresExactlyOnceOnClose(
-    ) async throws {
+    func testOnDisconnectFiresExactlyOnceOnClose() async throws {
         let state = TestState()
         let transport = MockTransport()
 
@@ -106,8 +105,7 @@ final class CallbackTests: XCTestCase {
 
     // MARK: - onTransportRestore not on initial connect
 
-    func testTransportRestoreNotOnInitialConnect(
-    ) async throws {
+    func testTransportRestoreNotOnInitialConnect() async throws {
         let state = TestState()
         let transport = MockTransport()
 
@@ -134,8 +132,7 @@ final class CallbackTests: XCTestCase {
 
     // MARK: - Clean close fires onTransportDrop(nil) before onDisconnect(nil)
 
-    func testCleanCloseFiresTransportDropNilBeforeDisconnect(
-    ) async throws {
+    func testCleanCloseFiresTransportDropNilBeforeDisconnect() async throws {
         let order = OrderTracker()
         let transport = MockTransport()
 

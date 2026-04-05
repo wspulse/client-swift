@@ -2,7 +2,7 @@ import Foundation
 import os
 
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// A WebSocket client with optional automatic reconnection.
@@ -23,6 +23,11 @@ public actor WspulseClient {
 
     var closed = false
     var started = false
+    /// Set to `true` after the first successful `connection.dial()`.
+    /// Used by `close()` to decide whether callbacks should fire.
+    /// Never reset — once connected, `close()` must fire callbacks
+    /// even if the transport is currently down (reconnecting state).
+    var connected = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
@@ -111,12 +116,24 @@ public actor WspulseClient {
         } catch {
             options.logger.warning("wspulse/client: initial dial failed: \(error)")
             await connection.close()
-            closed = true
-            doneContinuation.yield()
-            doneContinuation.finish()
+            // If close() already ran during the dial suspension, skip
+            // state changes it already performed.
+            if !closed {
+                closed = true
+                doneContinuation.yield()
+                doneContinuation.finish()
+            }
             throw error
         }
 
+        // If close() was called while dial was in-flight, the connection
+        // succeeded but the client is already torn down. Clean up and throw.
+        guard !closed else {
+            await connection.close()
+            throw WspulseError.connectionClosed
+        }
+
+        connected = true
         options.logger.debug("wspulse/client: connected url=\(self.url)")
         startReadLoop()
         startWriteLoop()
@@ -212,10 +229,11 @@ public actor WspulseClient {
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
 
-        // Only fire callbacks if the client was previously connected.
+        // Only fire callbacks if the client previously reached CONNECTED.
         // Per the behaviour contract, no callbacks fire if connect() was
-        // never called or if the initial dial failed.
-        if started {
+        // never called, if the initial dial failed, or if close() happens
+        // before the first successful dial completes.
+        if connected {
             // On clean close while CONNECTED, fire onTransportDrop(nil)
             // before onDisconnect. When close() is called while reconnecting,
             // handleTransportDrop already fired — do not fire again.

@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 final class URLSchemeTests: XCTestCase {
     // MARK: - WebSocket schemes pass through unchanged
