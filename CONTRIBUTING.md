@@ -17,6 +17,7 @@ swift build
 ```
 
 Requires:
+
 - **Swift 5.10+** via **Xcode 15.3+** (recommended) — provides both the compiler and `xcrun swift-format`.
 - Alternatively, the swift.org open-source toolchain; note that `make fmt` requires `swift-format` to be available via `xcrun`, which comes bundled with Xcode but must be installed separately when using the open-source toolchain.
 - **SwiftLint** (`brew install swiftlint`) for `make lint` and `make fmt`.
