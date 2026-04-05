@@ -14,7 +14,8 @@ test: ## Run unit + component tests
 lint: ## Run SwiftLint checks
 	@swiftlint lint --strict
 
-fmt: ## Format source files with SwiftLint
+fmt: ## Format source files (swift-format + SwiftLint fix)
+	@xcrun swift-format format -i -r --parallel Sources Tests
 	@swiftlint lint --fix --quiet
 
 check: ## Run lint and unit tests (pre-commit gate)
