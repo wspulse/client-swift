@@ -211,21 +211,25 @@ final class LifecycleTests: XCTestCase {
             await transport.dialCount == 1
         }
 
-        // Start close() while dial is still suspended, then resume the dial.
-        // This deterministically simulates the race where dial resumes after close() began.
-        let closeTask = Task {
-            await client.close()
-        }
-        await transport.resumeDial()
-        await closeTask.value
+        // Close while dial is still suspended.
+        // close() calls connection.close() → failPendingDial(), which resumes
+        // the dial continuation with connectionClosed. No manual resumeDial()
+        // needed — this is deterministic: connect() always throws without
+        // reaching connected=true, so loops are never started.
+        await client.close()
         for await _ in client.done {}
 
+        // connect() should have thrown connectionClosed.
         let connectError = await connectTask.value
-
-        // connect() should have thrown connectionClosed because close() ran.
-        if let err = connectError as? WspulseError {
-            XCTAssertEqual(err, WspulseError.connectionClosed)
+        guard let connectError else {
+            return XCTFail("connect() should throw WspulseError.connectionClosed")
         }
+        guard let wspulseError = connectError as? WspulseError else {
+            return XCTFail(
+                "connect() should throw WspulseError.connectionClosed, got \(type(of: connectError))"
+            )
+        }
+        XCTAssertEqual(wspulseError, WspulseError.connectionClosed)
 
         // No callbacks should have fired.
         XCTAssertFalse(

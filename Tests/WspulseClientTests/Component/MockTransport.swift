@@ -23,6 +23,10 @@ actor MockTransport: TransportProtocol {
         }
         if dialSuspended {
             try await withCheckedThrowingContinuation { cont in
+                precondition(
+                    dialContinuation == nil,
+                    "wspulse: MockTransport already has a suspended dial — call resumeDial() or failDial() first"
+                )
                 dialContinuation = cont
             }
         }
