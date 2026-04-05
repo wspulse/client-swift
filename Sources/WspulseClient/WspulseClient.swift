@@ -229,9 +229,10 @@ public actor WspulseClient {
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
 
-        // Only fire callbacks if the client was previously connected.
+        // Only fire callbacks if the client previously reached CONNECTED.
         // Per the behaviour contract, no callbacks fire if connect() was
-        // never called or if the initial dial failed.
+        // never called, if the initial dial failed, or if close() happens
+        // before the first successful dial completes.
         if connected {
             // On clean close while CONNECTED, fire onTransportDrop(nil)
             // before onDisconnect. When close() is called while reconnecting,
