@@ -38,8 +38,10 @@ actor FakeSleeper: Sleeper {
                 pending.append(Waiter(id: id, cont: cont))
             }
         } onCancel: {
-            // Schedule cancellation on the actor; the Task may run before or
-            // after the continuation is appended — the id lookup is safe either way.
+            // Schedule cancellation on the actor. Because FakeSleeper is an actor,
+            // this Task is queued and can only run after the current actor turn
+            // completes — which means `pending.append(...)` always executes first.
+            // The id is therefore guaranteed to be found in `pending`.
             Task { await self.cancel(id: id) }
         }
     }
