@@ -34,7 +34,7 @@ jobs:
         run: swift build
 
       - name: Run tests
-        run: swift test --filter WspulseClientTests --skip ClientIntegrationTests
+        run: swift test --filter WspulseClientTests
 
   check:
     runs-on: ubuntu-latest

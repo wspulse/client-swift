@@ -13,7 +13,7 @@ Component tests use a `MockTransport` actor (zero network I/O) injected via
 - `MiscTests` (frame fidelity, ordering, query params, concurrent sends)
 - `ReconnectTests` (auto-reconnect, retries exhausted, pong timeout)
 
-**Run:** `swift test --filter WspulseClientTests --skip ClientIntegrationTests` (or `make test`)
+**Run:** `swift test --filter WspulseClientTests` (or `make test`)
 
 ## Scenario Matrix
 
