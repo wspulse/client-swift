@@ -27,7 +27,7 @@ Requires:
 Run `make check` before every commit. It runs in order:
 
 1. `make lint` — runs SwiftLint in strict mode; must pass with zero warnings
-2. `make test` — runs unit tests; must pass
+2. `make test` — runs unit + component tests; must pass
 
 To auto-fix formatting, run `make fmt` (requires `xcrun swift-format` + SwiftLint).
 

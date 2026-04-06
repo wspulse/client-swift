@@ -21,7 +21,7 @@ wspulse/client-swift is a **WebSocket client library for Apple platforms** (iOS 
 make build      # swift build
 make test       # unit + component tests
 make lint       # SwiftLint --strict
-make fmt        # SwiftLint --fix
+make fmt        # xcrun swift-format … + swiftlint lint --fix
 make check      # lint + test (pre-commit gate)
 make clean      # swift package clean
 ```
