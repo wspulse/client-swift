@@ -204,7 +204,7 @@ public struct Frame: Codable, Sendable {
 | Case               | When thrown / passed to `onDisconnect`                  |
 | ------------------ | ------------------------------------------------------- |
 | `connectionClosed` | `send()` called after `close()`                         |
-| `sendBufferFull`   | Send buffer (256 frames) is full                        |
+| `sendBufferFull`   | Send buffer is full (capacity set by `sendBufferSize`)  |
 | `retriesExhausted` | Max reconnect retries exhausted → `onDisconnect`        |
 | `connectionLost`   | Server drops and auto-reconnect is off → `onDisconnect` |
 
@@ -230,8 +230,9 @@ Default: `JSONCodec` (JSON text frames).
 | ----------------- | ---------------------------- | ----------- | ------------------------------------------- |
 | `onMessage`       | `@Sendable (Frame) -> Void`  | no-op       | Called for every inbound frame.             |
 | `onDisconnect`    | `@Sendable (Error?) -> Void` | no-op       | Called on permanent disconnect.             |
-| `onReconnect`     | `@Sendable (Int) -> Void`    | no-op       | Called at each reconnect attempt (0-based). |
+| `onTransportRestore` | `@Sendable () -> Void`       | no-op       | Called after each successful reconnect.     |
 | `onTransportDrop` | `@Sendable (Error?) -> Void` | no-op       | Called on transport drop or clean `close()` (`nil` = clean). |
+| `sendBufferSize`  | `Int`                        | 256         | Max outbound frames buffered before `sendBufferFull` is thrown. Valid range: [1, 4096]. |
 | `autoReconnect`   | `AutoReconnectOptions?`      | `nil` (off) | Enable exponential backoff reconnect.       |
 | `heartbeat`       | `HeartbeatOptions`           | 20s / 60s   | Client-side Ping/Pong interval.             |
 | `writeWait`       | `Duration`                   | 10s         | Deadline for a single write operation.      |
@@ -284,7 +285,7 @@ let options = WspulseClientOptions(
 - **Permanent disconnect callback** — `onDisconnect` fires exactly once when the client is truly done (`close()` called, retries exhausted, or connection lost without auto-reconnect).
 - **Heartbeat** — Client-side Ping/Pong keeps the connection alive and detects silently-dead servers.
 - **Max message size** — Inbound messages exceeding `maxMessageSize` bytes drop the connection.
-- **Backpressure** — bounded 256-frame send buffer; throws `WspulseError.sendBufferFull` when full.
+- **Backpressure** — bounded send buffer (default 256 frames, configurable via `sendBufferSize`); throws `WspulseError.sendBufferFull` when full.
 - **Actor-isolated send** — `send()` enqueues only and returns immediately, safe to call from any `Task` without holding locks.
 - **`done` AsyncStream** — yields once then finishes on permanent disconnect. `for await _ in client.done {}` suspends until the client is truly closed.
 - **Idempotent close** — `close()` is safe to call multiple times concurrently.
