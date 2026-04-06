@@ -15,7 +15,7 @@ type_body_length:
   error: 500
 
 file_length:
-  warning: 500
+  warning: 600
   error: 800
 
 function_body_length:
@@ -26,6 +26,7 @@ disabled_rules:
   - trailing_comma
   - opening_brace
   - static_over_final_class
+  - closure_parameter_position
 
 opt_in_rules:
   - empty_count

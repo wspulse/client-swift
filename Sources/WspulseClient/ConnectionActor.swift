@@ -1,6 +1,7 @@
 import Foundation
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// URLSession delegate that tracks WebSocket lifecycle events.
@@ -90,7 +91,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 }
 
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
-actor ConnectionActor {
+actor ConnectionActor: TransportProtocol {
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
     private var connectionDelegate: ConnectionDelegate?
@@ -127,7 +128,8 @@ actor ConnectionActor {
 
         let capturedTask = wsTask
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
                 delegate.configure(
                     onOpen: { continuation.resume() },
                     onFail: { error in continuation.resume(throwing: error) }
@@ -193,7 +195,8 @@ actor ConnectionActor {
         }
         let capturedTask = task
         try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
                 capturedTask.sendPing { error in
                     if let error {
                         continuation.resume(throwing: error)

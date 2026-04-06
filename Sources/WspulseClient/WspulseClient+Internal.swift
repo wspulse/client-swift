@@ -49,12 +49,13 @@ extension WspulseClient {
         let pingPeriod = options.heartbeat.pingPeriod
         let pongWait = options.heartbeat.pongWait
         let conn = connection
+        let slp = sleeper
 
         pingTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: pingPeriod)
+                    try await slp.sleep(for: pingPeriod)
                 } catch {
                     return
                 }
@@ -66,7 +67,7 @@ extension WspulseClient {
                             try await conn.sendPing()
                         }
                         group.addTask {
-                            try await Task.sleep(for: pongWait)
+                            try await slp.sleep(for: pongWait)
                             throw WspulseError.connectionLost
                         }
                         if let result = try await group.next() {
@@ -128,6 +129,8 @@ extension WspulseClient {
 
     private func startReconnectLoop() {
         guard let reconnectOptions = options.autoReconnect else { return }
+        let slp = sleeper
+        let jitter = randomJitter
 
         reconnectTask = Task { [weak self] in
             guard let self else { return }
@@ -137,13 +140,14 @@ extension WspulseClient {
                 let delay = backoff(
                     attempt: attempt,
                     base: reconnectOptions.baseDelay,
-                    max: reconnectOptions.maxDelay
+                    max: reconnectOptions.maxDelay,
+                    randomJitter: jitter
                 )
 
                 options.logger.debug("wspulse/client: reconnect attempt=\(attempt) delay=\(delay)")
 
                 do {
-                    try await Task.sleep(for: delay)
+                    try await slp.sleep(for: delay)
                 } catch {
                     return
                 }
@@ -230,6 +234,7 @@ extension WspulseClient {
         let writeWait = options.writeWait
         let conn = connection
         let frameType = options.codec.frameType
+        let slp = sleeper
         while !sendBuffer.isEmpty {
             let data = sendBuffer[0]
             do {
@@ -238,7 +243,7 @@ extension WspulseClient {
                         try await conn.send(data, frameType: frameType)
                     }
                     group.addTask {
-                        try await Task.sleep(for: writeWait)
+                        try await slp.sleep(for: writeWait)
                         throw WspulseError.connectionLost
                     }
                     if let result = try await group.next() {

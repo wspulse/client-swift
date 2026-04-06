@@ -9,7 +9,7 @@ wspulse/client-swift is a **WebSocket client library for Apple platforms** (iOS 
 - **`Sources/WspulseClient/WspulseClient.swift`** — `public actor WspulseClient`: entry point with `connect()`, `send()`, `close()`, `done`. Internal `Task`s: `readLoop`, `writeLoop`, `reconnectLoop`, `pingLoop`.
 - **`Sources/WspulseClient/WspulseClientOptions.swift`** — `WspulseClientOptions` value type with all configuration (callbacks, reconnect, heartbeat, codec).
 - **`Sources/WspulseClient/Codec.swift`** — `WspulseCodec` protocol, `FrameType` enum, `JSONCodec` default implementation.
-- **`Sources/WspulseClient/Frame.swift`** — `struct Frame: Codable, Sendable` (`id`, `event`, `payload` — all optional).
+- **`Sources/WspulseClient/Frame.swift`** — `struct Frame: Codable, Sendable` (`event`, `payload` — all optional).
 - **`Sources/WspulseClient/AnyJSON.swift`** — `enum AnyJSON: Codable, Sendable, Equatable` for type-erased JSON values.
 - **`Sources/WspulseClient/Errors.swift`** — `enum WspulseError: Error, Sendable` hierarchy.
 - **`Sources/WspulseClient/Backoff.swift`** — `backoff(attempt:base:max:)` function for exponential delay with equal jitter (matches Go implementation).
@@ -19,11 +19,10 @@ wspulse/client-swift is a **WebSocket client library for Apple platforms** (iOS 
 
 ```bash
 make build      # swift build
-make test       # unit tests (excludes integration)
-make test-integration  # integration tests (requires Go testserver)
+make test       # unit + component tests
 make lint       # SwiftLint --strict
-make fmt        # SwiftLint --fix
-make check      # lint + unit test (pre-commit gate)
+make fmt        # xcrun swift-format … + swiftlint lint --fix
+make check      # lint + test (pre-commit gate)
 make clean      # swift package clean
 ```
 
@@ -46,7 +45,8 @@ make clean      # swift package clean
     - `fix/<name>` — quick fix (e.g. config, docs, CI)
     - `chore/<name>` — maintenance, CI/CD, dependencies, docs
     - CI triggers on all branch prefixes above and on PRs targeting `main`/`develop`. Tags do **not** trigger CI (the tag is created after CI already passed). Open a PR into `develop`; `develop` requires status checks to pass.
-- **Tests**: in `Tests/WspulseClientTests/`. Cover happy path and at least one error path. Required for new public functions. Integration tests use a Go echo server from `testserver/`.
+  - **Pull request description**: must follow the repo's `.github/PULL_REQUEST_TEMPLATE.md`. Fill in every section (Summary, Changes, Checklist). Do not invent custom formats.
+- **Tests**: in `Tests/WspulseClientTests/`. Cover happy path and at least one error path. Required for new public functions. Component tests use `MockTransport` (via `TransportProtocol`) for deterministic testing without network I/O.
   - **Test-first for bug fixes**: **mandatory** — see Critical Rule 8 for the required step-by-step procedure. Do not touch production code without a prior failing test.
 - **API compatibility**:
   - Public symbols are a contract. Changing or removing any public identifier is a breaking change requiring a major version bump.
@@ -55,6 +55,18 @@ make clean      # swift package clean
 - **Error format**: error descriptions prefixed with `wspulse: <context>`.
 - **Dependency policy**: zero external dependencies. `URLSessionWebSocketTask` from Foundation is the only transport. Justify any new external dependency explicitly in the PR description.
 - **File encoding**: all files must be UTF-8 without BOM. Do not use any other encoding.
+
+## Feature Workflow
+
+All new features and design changes follow this process — do not skip steps:
+
+1. **Plan** — write idea to `doc/local/plan/<name>.md` (local only, git-ignored)
+2. **Quick discussion** — feasibility + value check
+3. **Go / No-go** — kill or proceed
+4. **Layer check** — transport layer (wspulse implements) or application layer (write docs recipe instead)
+5. **Issue** — repo-scoped work: open issue on this repo. Cross-repo/global work: open issue on [`wspulse/.github`](https://github.com/wspulse/.github). Include summary, scope, impact assessment, priority label + milestone
+6. **Design discussion** — API surface, cross-SDK parity, contract/protocol updates, edge cases
+7. **Task** — feature branch from `develop`, implement with tests, CHANGELOG entry, PR following template. **Repo-scoped**: link PR to the issue. **Global**: each PR mentions the global issue (e.g., `wspulse/.github#N`); after opening a PR, comment on the global issue with the PR link
 
 ## Critical Rules
 
@@ -74,10 +86,9 @@ make clean      # swift package clean
    6. If you are about to edit production code and no failing test exists yet — stop and go back to step 1.
 9. **STOP — before every commit, verify this checklist:**
    1. Run `make check` (lint → test) and confirm it passes. Skip if the commit contains only non-code changes (e.g. documentation, comments, Markdown).
-   2. Run GitHub Copilot code review (`github.copilot.chat.review.changes`) on the working-tree diff and resolve every comment before proceeding.
-   3. Commit message follows [commit-message-instructions.md](instructions/commit-message-instructions.md): correct type, subject ≤ 50 chars, numbered body items stating reason → change.
-   4. This commit contains exactly one logical change — no unrelated modifications.
-   5. If any item fails — fix it before committing.
+   2. Commit message follows [commit-message-instructions.md](instructions/commit-message-instructions.md): correct type, subject ≤ 50 chars, numbered body items stating reason → change.
+   3. This commit contains exactly one logical change — no unrelated modifications.
+   4. If any item fails — fix it before committing.
 10. **Accuracy** — if you have questions or need clarification, ask the user. Do not make assumptions without confirming.
 11. **Language consistency** — when the user writes in Traditional Chinese, respond in Traditional Chinese; otherwise respond in English.
 12. **No breaking changes without version bump** — never rename, remove, or change the signature of a public symbol without bumping the major version. When unsure, add alongside the old symbol and deprecate.

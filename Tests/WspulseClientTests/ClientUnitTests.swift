@@ -1,5 +1,6 @@
-@testable import WspulseClient
 import XCTest
+
+@testable import WspulseClient
 
 final class ClientUnitTests: XCTestCase {
     // MARK: - Send on closed client
@@ -160,7 +161,8 @@ final class ClientUnitTests: XCTestCase {
             )
         )
         await client.close()
-        XCTAssertEqual(state.count, 0, "onDisconnect must not fire when close() is called before connect()")
+        XCTAssertEqual(
+            state.count, 0, "onDisconnect must not fire when close() is called before connect()")
     }
 
     // MARK: - send() throws sendBufferFull when buffer is full
@@ -169,13 +171,36 @@ final class ClientUnitTests: XCTestCase {
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!
         )
-        // Fill buffer to capacity (256)
+        // Fill buffer to default capacity (256)
         for idx in 0..<256 {
             await client.appendToBuffer(data: Data("frame-\(idx)".utf8))
         }
         // send() should throw sendBufferFull even though client is not "closed"
         // But send() checks closed first — we need to set started=true via connect path.
         // Since closed=false by default, send() should hit the buffer-full guard.
+        do {
+            try await client.send(Frame(event: "overflow"))
+            XCTFail("Expected WspulseError.sendBufferFull")
+        } catch let error as WspulseError {
+            XCTAssertEqual(error, .sendBufferFull)
+        }
+    }
+
+    // MARK: - sendBufferSize is respected
+
+    func testCustomSendBufferSizeIsRespected() async throws {
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:0")!,
+            options: WspulseClientOptions(sendBufferSize: 4)
+        )
+        // Fill to custom capacity
+        for idx in 0..<4 {
+            await client.appendToBuffer(data: Data("frame-\(idx)".utf8))
+        }
+        let count = await client.bufferCount
+        XCTAssertEqual(count, 4)
+
+        // The 5th send must throw sendBufferFull
         do {
             try await client.send(Frame(event: "overflow"))
             XCTFail("Expected WspulseError.sendBufferFull")

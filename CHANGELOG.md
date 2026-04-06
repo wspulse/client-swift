@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased]
+
+---
+
+## [0.4.0] - 2026-04-06
+
+### Added
+
+- `connect()` auto-converts `http://` to `ws://` and `https://` to `wss://` (case-insensitive per RFC 3986). Unsupported or missing schemes trigger precondition failure.
+- `sendBufferSize` option — configurable outbound buffer capacity [1, 4096], default 256
+- Internal `TransportProtocol` for WebSocket transport abstraction (enables mock-based testing)
+- 17 deterministic component tests using `MockTransport` — zero network I/O, no testserver dependency
+- `Sleeper` protocol (`sleep(for:) async throws`) with `RealSleeper` production wrapper
+- `sleeper:` and `randomJitter:` parameters on the internal `WspulseClient` initializer for test injection
+- `backoff()` receives an injectable `randomJitter:` closure for deterministic jitter in tests
+- `FakeSleeper` actor in the test target: credit-based, handles `advance()` called before or after `sleep(for:)`, supports cooperative task cancellation so cancelled tasks exit cleanly
+- Pong-timeout and reconnect component tests now use virtual sleeps instead of real-time waits
+
+### Changed
+
+- **BREAKING**: `onTransportDrop` callback signature changed from `(@Sendable (Error) -> Void)?` to `(@Sendable (Error?) -> Void)?`. The callback now fires on user-initiated close with `nil`, guaranteeing exactly one invocation per transport lifecycle. In reconnect scenarios each transport drop produces one invocation; a subsequent clean `close()` produces one more.
+- CI no longer runs integration tests (`test-integration` job removed); component tests cover all scenarios
+
+### Removed
+
+- **BREAKING**: `Frame.id` field removed — transport layer does not use it. Applications needing message IDs should use payload.
+
+---
+
 ## [0.3.0] - 2026-03-24
 
 ### Added
@@ -58,6 +87,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/wspulse/client-swift/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/wspulse/client-swift/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/wspulse/client-swift/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wspulse/client-swift/releases/tag/v0.1.0

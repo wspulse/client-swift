@@ -1,7 +1,8 @@
 import Foundation
 import os
+
 #if canImport(FoundationNetworking)
-import FoundationNetworking
+    import FoundationNetworking
 #endif
 
 /// A WebSocket client with optional automatic reconnection.
@@ -15,17 +16,24 @@ public actor WspulseClient {
 
     let url: URL
     let options: WspulseClientOptions
-    let connection: ConnectionActor
+    let connection: any TransportProtocol
+    let sleeper: any Sleeper
+    let randomJitter: @Sendable () -> Double
     let doneContinuation: AsyncStream<Void>.Continuation
 
     var closed = false
     var started = false
+    /// Set to `true` after the first successful `connection.dial()`.
+    /// Used by `close()` to decide whether callbacks should fire.
+    /// Never reset — once connected, `close()` must fire callbacks
+    /// even if the transport is currently down (reconnecting state).
+    var connected = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
     var reconnecting = false
     var sendBuffer: [Data] = []
-    let sendBufferMax = 256
+    let sendBufferMax: Int
 
     // Signal channel for the write loop: each element means "there's data to send".
     // Declared `var` so startWriteLoop() can replace the stream on each connection
@@ -40,9 +48,36 @@ public actor WspulseClient {
     var pingTask: Task<Void, Never>?
 
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
-        self.url = url
+        self.url = Self.normalizeScheme(url)
         self.options = options
+        self.sendBufferMax = options.sendBufferSize
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
+        self.sleeper = RealSleeper()
+        self.randomJitter = { Double.random(in: 0.5...1.0) }
+
+        var cont: AsyncStream<Void>.Continuation!
+        self.done = AsyncStream<Void> { cont = $0 }
+        self.doneContinuation = cont
+
+        var writeCont: AsyncStream<Void>.Continuation!
+        self.writeSignal = AsyncStream<Void> { writeCont = $0 }
+        self.writeSignalContinuation = writeCont
+    }
+
+    /// Internal initializer for testing with a custom transport.
+    init(
+        url: URL,
+        options: WspulseClientOptions,
+        transport: any TransportProtocol,
+        sleeper: any Sleeper = RealSleeper(),
+        randomJitter: @escaping @Sendable () -> Double = { Double.random(in: 0.5...1.0) }
+    ) {
+        self.url = Self.normalizeScheme(url)
+        self.options = options
+        self.sendBufferMax = options.sendBufferSize
+        self.connection = transport
+        self.sleeper = sleeper
+        self.randomJitter = randomJitter
 
         var cont: AsyncStream<Void>.Continuation!
         self.done = AsyncStream<Void> { cont = $0 }
@@ -81,12 +116,24 @@ public actor WspulseClient {
         } catch {
             options.logger.warning("wspulse/client: initial dial failed: \(error)")
             await connection.close()
-            closed = true
-            doneContinuation.yield()
-            doneContinuation.finish()
+            // If close() already ran during the dial suspension, skip
+            // state changes it already performed.
+            if !closed {
+                closed = true
+                doneContinuation.yield()
+                doneContinuation.finish()
+            }
             throw error
         }
 
+        // If close() was called while dial was in-flight, the connection
+        // succeeded but the client is already torn down. Clean up and throw.
+        guard !closed else {
+            await connection.close()
+            throw WspulseError.connectionClosed
+        }
+
+        connected = true
         options.logger.debug("wspulse/client: connected url=\(self.url)")
         startReadLoop()
         startWriteLoop()
@@ -111,11 +158,51 @@ public actor WspulseClient {
         writeSignalContinuation.yield()
     }
 
+    // MARK: - URL Scheme Normalization
+
+    /// Convert `http://` to `ws://` and `https://` to `wss://`.
+    ///
+    /// Unsupported or missing schemes trigger `preconditionFailure`
+    /// because `URLSessionWebSocketTask` raises an uncatchable
+    /// `NSException` for non-ws/wss schemes.
+    private static func normalizeScheme(_ url: URL) -> URL {
+        guard
+            var components = URLComponents(
+                url: url, resolvingAgainstBaseURL: false
+            )
+        else {
+            preconditionFailure("wspulse: failed to parse URL")
+        }
+
+        switch components.scheme?.lowercased() {
+        case "http":
+            components.scheme = "ws"
+        case "https":
+            components.scheme = "wss"
+        case "ws", "wss":
+            return url
+        default:
+            preconditionFailure(
+                "wspulse: unsupported url scheme "
+                    + "\"\(components.scheme ?? "(missing)")\", "
+                    + "use ws://, wss://, http://, or https://"
+            )
+        }
+
+        guard let result = components.url else {
+            preconditionFailure(
+                "wspulse: failed to rebuild URL after scheme conversion"
+            )
+        }
+        return result
+    }
+
     /// Permanently terminate the connection and stop any reconnect loop.
     ///
     /// Idempotent: calling more than once is safe.
     public func close() async {
         guard !closed else { return }
+        let wasReconnecting = reconnecting
         closed = true
         reconnecting = false
 
@@ -142,10 +229,17 @@ public actor WspulseClient {
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
 
-        // Only fire onDisconnect if the client was previously connected.
+        // Only fire callbacks if the client previously reached CONNECTED.
         // Per the behaviour contract, no callbacks fire if connect() was
-        // never called or if the initial dial failed.
-        if started {
+        // never called, if the initial dial failed, or if close() happens
+        // before the first successful dial completes.
+        if connected {
+            // On clean close while CONNECTED, fire onTransportDrop(nil)
+            // before onDisconnect. When close() is called while reconnecting,
+            // handleTransportDrop already fired — do not fire again.
+            if !wasReconnecting {
+                options.onTransportDrop?(nil)
+            }
             options.onDisconnect?(nil)
         }
         doneContinuation.yield()
