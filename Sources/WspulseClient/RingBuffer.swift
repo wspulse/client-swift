@@ -37,19 +37,39 @@ struct RingBuffer<Element: Sendable>: Sendable {
 
     /// Return the front element without removing it.
     ///
+    /// Returns `nil` when the buffer is empty — this is the only case
+    /// where `nil` is returned. When `size > 0`, the slot at `head` is
+    /// guaranteed non-nil by construction: `push` writes a non-optional
+    /// `Element`, and only `dequeue`/`clear` nil out slots (decrementing
+    /// `size` in lockstep). A `nil` slot with `size > 0` would indicate
+    /// an internal invariant violation and triggers `preconditionFailure`.
+    ///
     /// - Returns: The oldest element, or `nil` if the buffer is empty.
     func peek() -> Element? {
         if size == 0 { return nil }
-        return data[head]
+        guard let element = data[head] else {
+            preconditionFailure(
+                "RingBuffer: expected non-nil element at head"
+            )
+        }
+        return element
     }
 
     /// Remove and return the front element.
+    ///
+    /// Returns `nil` when the buffer is empty — this is the only case
+    /// where `nil` is returned. The non-nil invariant is identical to
+    /// ``peek()``; see its documentation for the full rationale.
     ///
     /// - Returns: The oldest element, or `nil` if the buffer is empty.
     @discardableResult
     mutating func dequeue() -> Element? {
         if size == 0 { return nil }
-        let element = data[head]
+        guard let element = data[head] else {
+            preconditionFailure(
+                "RingBuffer: expected non-nil element at head"
+            )
+        }
         data[head] = nil
         head = (head + 1) % capacity
         size -= 1
