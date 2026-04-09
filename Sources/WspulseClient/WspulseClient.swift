@@ -32,8 +32,7 @@ public actor WspulseClient {
     /// loop is active (e.g. when both the read loop and ping loop detect the
     /// same transport drop).
     var reconnecting = false
-    var sendBuffer: [Data] = []
-    let sendBufferMax: Int
+    var sendBuffer: RingBuffer<Data>
 
     // Signal channel for the write loop: each element means "there's data to send".
     // Declared `var` so startWriteLoop() can replace the stream on each connection
@@ -50,7 +49,7 @@ public actor WspulseClient {
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
         self.url = Self.normalizeScheme(url)
         self.options = options
-        self.sendBufferMax = options.sendBufferSize
+        self.sendBuffer = RingBuffer(capacity: options.sendBufferSize)
         self.connection = ConnectionActor(maxMessageSize: options.maxMessageSize)
         self.sleeper = RealSleeper()
         self.randomJitter = { Double.random(in: 0.5...1.0) }
@@ -74,7 +73,7 @@ public actor WspulseClient {
     ) {
         self.url = Self.normalizeScheme(url)
         self.options = options
-        self.sendBufferMax = options.sendBufferSize
+        self.sendBuffer = RingBuffer(capacity: options.sendBufferSize)
         self.connection = transport
         self.sleeper = sleeper
         self.randomJitter = randomJitter
@@ -150,11 +149,9 @@ public actor WspulseClient {
 
         let data = try options.codec.encode(frame)
 
-        guard sendBuffer.count < sendBufferMax else {
+        guard sendBuffer.push(data) else {
             throw WspulseError.sendBufferFull
         }
-
-        sendBuffer.append(data)
         writeSignalContinuation.yield()
     }
 
@@ -213,6 +210,7 @@ public actor WspulseClient {
         pingTask?.cancel()
 
         writeSignalContinuation.finish()
+        sendBuffer.clear()
 
         await connection.close()
 

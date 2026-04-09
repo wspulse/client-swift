@@ -489,7 +489,7 @@ private struct FailingCodec: WspulseCodec {
 
 extension WspulseClient {
     func appendToBuffer(data: Data) {
-        sendBuffer.append(data)
+        sendBuffer.push(data)
     }
 
     var bufferCount: Int {

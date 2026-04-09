@@ -236,7 +236,7 @@ extension WspulseClient {
         let frameType = options.codec.frameType
         let slp = sleeper
         while !sendBuffer.isEmpty {
-            let data = sendBuffer[0]
+            guard let data = sendBuffer.peek() else { break }
             do {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     group.addTask {
@@ -251,13 +251,13 @@ extension WspulseClient {
                     }
                     group.cancelAll()
                 }
-                sendBuffer.removeFirst()
+                sendBuffer.dequeue()
             } catch is CancellationError {
                 return
             } catch let error as WspulseError where error == .encodingFailed {
                 // Encoding error is not a transport issue — drop the frame
                 // and continue draining. Reconnecting would fail identically.
-                sendBuffer.removeFirst()
+                sendBuffer.dequeue()
                 options.logger.warning("wspulse/client: frame dropped (encoding failed)")
             } catch {
                 if closed { return }
