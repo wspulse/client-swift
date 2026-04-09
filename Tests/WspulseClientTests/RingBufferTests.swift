@@ -134,6 +134,15 @@ final class RingBufferWrapAroundTests: XCTestCase {
 // MARK: - F: Clear
 
 final class RingBufferClearTests: XCTestCase {
+    func testClearOnEmptyBufferIsNoOp() {
+        var buf = RingBuffer<String>(capacity: 3)
+        buf.clear()
+        XCTAssertEqual(buf.count, 0)
+        XCTAssertTrue(buf.isEmpty)
+        XCTAssertTrue(buf.push("a"))
+        XCTAssertEqual(buf.dequeue(), "a")
+    }
+
     func testClearResetsBufferToEmpty() {
         var buf = RingBuffer<String>(capacity: 3)
         buf.push("a")

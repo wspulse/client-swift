@@ -7,11 +7,12 @@ struct RingBuffer<Element: Sendable>: Sendable {
     private var data: [Element?]
     private var head = 0
     private var size = 0
-    private let cap: Int
+    private let capacity: Int
 
     /// Create a ring buffer with the given fixed capacity.
     init(capacity: Int) {
-        self.cap = capacity
+        precondition(capacity > 0, "RingBuffer: capacity must be at least 1")
+        self.capacity = capacity
         self.data = [Element?](repeating: nil, count: capacity)
     }
 
@@ -27,8 +28,8 @@ struct RingBuffer<Element: Sendable>: Sendable {
     ///   buffer is full.
     @discardableResult
     mutating func push(_ element: Element) -> Bool {
-        if size >= cap { return false }
-        let index = (head + size) % cap
+        if size >= capacity { return false }
+        let index = (head + size) % capacity
         data[index] = element
         size += 1
         return true
@@ -50,7 +51,7 @@ struct RingBuffer<Element: Sendable>: Sendable {
         if size == 0 { return nil }
         let element = data[head]
         data[head] = nil
-        head = (head + 1) % cap
+        head = (head + 1) % capacity
         size -= 1
         return element
     }
@@ -58,7 +59,7 @@ struct RingBuffer<Element: Sendable>: Sendable {
     /// Reset the buffer to empty without reallocating.
     mutating func clear() {
         for idx in 0..<size {
-            data[(head + idx) % cap] = nil
+            data[(head + idx) % capacity] = nil
         }
         head = 0
         size = 0
