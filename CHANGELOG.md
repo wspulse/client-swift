@@ -4,6 +4,14 @@
 
 ---
 
+## [0.4.1] - 2026-04-09
+
+### Changed
+
+- Internal send buffer replaced with `RingBuffer<Data>` — O(1) dequeue instead of O(n) `Array.removeFirst()`. No API or behaviour changes.
+
+---
+
 ## [0.4.0] - 2026-04-06
 
 ### Added
