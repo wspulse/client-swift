@@ -2,9 +2,8 @@ import Foundation
 import os
 
 // Configuration upper bounds.
-private let maxPingPeriod: Duration = .seconds(60)
-private let maxPongWait: Duration = .seconds(120)
-private let maxWriteWait: Duration = .seconds(30)
+private let maxPingInterval: Duration = .seconds(60)
+private let maxWriteTimeout: Duration = .seconds(30)
 private let maxMsgSizeBytes = 64 * 1_048_576
 private let maxBaseDelay: Duration = .seconds(60)
 private let maxDelayLimit: Duration = .seconds(300)
@@ -45,29 +44,6 @@ public struct AutoReconnectOptions: Sendable {
     }
 }
 
-/// Configuration for client-side heartbeat (Ping/Pong).
-public struct HeartbeatOptions: Sendable {
-    /// Interval between Ping frames sent by the client. Range: (0s, 60s].
-    public var pingPeriod: Duration
-
-    /// Maximum time to wait for a Pong reply before closing. Range: (0s, 2m]. Must be > `pingPeriod`.
-    public var pongWait: Duration
-
-    public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
-        precondition(pingPeriod > .zero, "wspulse: heartbeat.pingPeriod must be positive")
-        precondition(
-            pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
-        precondition(pongWait > .zero, "wspulse: heartbeat.pongWait must be positive")
-        precondition(pongWait <= maxPongWait, "wspulse: heartbeat.pongWait exceeds maximum (2m)")
-        precondition(
-            pongWait > pingPeriod,
-            "wspulse: heartbeat.pingPeriod must be strictly less than heartbeat.pongWait"
-        )
-        self.pingPeriod = pingPeriod
-        self.pongWait = pongWait
-    }
-}
-
 /// All configuration options for ``WspulseClient``.
 public struct WspulseClientOptions: Sendable {
     /// Called for every inbound frame decoded by the codec.
@@ -90,11 +66,14 @@ public struct WspulseClientOptions: Sendable {
     /// Enable exponential backoff reconnect. `nil` = disabled.
     public var autoReconnect: AutoReconnectOptions?
 
-    /// Client-side Ping/Pong interval.
-    public var heartbeat: HeartbeatOptions
+    /// Interval between client-sent Ping frames. Must be in (0, 1m].
+    public var pingInterval: Duration
 
-    /// Deadline for a single write operation.
-    public var writeWait: Duration
+    /// Deadline for a single write operation. Also used as the pong deadline — if no Pong arrives
+    /// within this duration after a Ping, the connection is considered dead. Must be in (0, 30s].
+    /// Setting this value below the expected server round-trip time will cause spurious heartbeat
+    /// disconnects.
+    public var writeTimeout: Duration
 
     /// Max inbound message size in bytes. `0` disables the limit. Connection closed if exceeded.
     public var maxMessageSize: Int
@@ -117,8 +96,8 @@ public struct WspulseClientOptions: Sendable {
         onTransportRestore: (@Sendable () -> Void)? = nil,
         onTransportDrop: (@Sendable (Error?) -> Void)? = nil,
         autoReconnect: AutoReconnectOptions? = nil,
-        heartbeat: HeartbeatOptions = HeartbeatOptions(),
-        writeWait: Duration = .seconds(10),
+        pingInterval: Duration = .seconds(20),
+        writeTimeout: Duration = .seconds(10),
         maxMessageSize: Int = 1_048_576,
         sendBufferSize: Int = 256,
         dialHeaders: [String: String] = [:],
@@ -128,8 +107,11 @@ public struct WspulseClientOptions: Sendable {
         precondition(maxMessageSize >= 0, "wspulse: maxMessageSize must be non-negative")
         precondition(
             maxMessageSize <= maxMsgSizeBytes, "wspulse: maxMessageSize exceeds maximum (64 MiB)")
-        precondition(writeWait > .zero, "wspulse: writeWait must be positive")
-        precondition(writeWait <= maxWriteWait, "wspulse: writeWait exceeds maximum (30s)")
+        precondition(pingInterval > .zero, "wspulse: pingInterval must be positive")
+        precondition(
+            pingInterval <= maxPingInterval, "wspulse: pingInterval exceeds maximum (1m)")
+        precondition(writeTimeout > .zero, "wspulse: writeTimeout must be positive")
+        precondition(writeTimeout <= maxWriteTimeout, "wspulse: writeTimeout exceeds maximum (30s)")
         precondition(sendBufferSize >= 1, "wspulse: sendBufferSize must be at least 1")
         precondition(
             sendBufferSize <= maxSendBufferSize,
@@ -140,8 +122,8 @@ public struct WspulseClientOptions: Sendable {
         self.onTransportRestore = onTransportRestore
         self.onTransportDrop = onTransportDrop
         self.autoReconnect = autoReconnect
-        self.heartbeat = heartbeat
-        self.writeWait = writeWait
+        self.pingInterval = pingInterval
+        self.writeTimeout = writeTimeout
         self.maxMessageSize = maxMessageSize
         self.sendBufferSize = sendBufferSize
         self.dialHeaders = dialHeaders

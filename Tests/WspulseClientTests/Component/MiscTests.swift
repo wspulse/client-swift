@@ -152,19 +152,17 @@ final class MiscTests: XCTestCase {
             url: URL(string: "ws://127.0.0.1:9999")!,
             options: WspulseClientOptions(
                 onDisconnect: { state.addDisconnect($0) },
-                heartbeat: HeartbeatOptions(
-                    pingPeriod: .milliseconds(50),
-                    pongWait: .milliseconds(200)
-                )
+                pingInterval: .milliseconds(50),
+                writeTimeout: .milliseconds(200)
             ),
             transport: transport,
             sleeper: sleeper
         )
         try await client.connect()
 
-        // Advance past ping period to trigger the first ping.
+        // Advance past pingInterval to trigger the first ping.
         await sleeper.advance()
-        // Advance past pong wait to trigger connection lost.
+        // Advance past writeTimeout (pong deadline) to trigger connection lost.
         await sleeper.advance()
 
         try await waitUntil(timeout: 5) {

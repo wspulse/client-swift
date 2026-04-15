@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **Heartbeat API flattened**: removed `HeartbeatOptions` struct and `heartbeat` option. Replaced by top-level `pingInterval` (was `heartbeat.pingPeriod`) and `writeTimeout` (was `writeWait`). Pong deadline is now implicit in `writeTimeout` (was separate `heartbeat.pongWait`).
+- Renamed `writeWait` option to `writeTimeout` for naming consistency across SDKs.
+- Validation error messages updated accordingly.
+
+### Removed
+
+- `HeartbeatOptions` struct.
+- `heartbeat.pongWait` option (pong deadline now uses `writeTimeout`).
+
 ---
 
 ## [0.4.1] - 2026-04-09

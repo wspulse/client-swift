@@ -11,17 +11,18 @@ final class OptionsTests: XCTestCase {
         XCTAssertNil(opts.onTransportRestore)
         XCTAssertNil(opts.onTransportDrop)
         XCTAssertNil(opts.autoReconnect)
-        XCTAssertEqual(opts.writeWait, .seconds(10))
+        XCTAssertEqual(opts.pingInterval, .seconds(20))
+        XCTAssertEqual(opts.writeTimeout, .seconds(10))
         XCTAssertEqual(opts.maxMessageSize, 1_048_576)
         XCTAssertEqual(opts.sendBufferSize, 256)
         XCTAssertTrue(opts.dialHeaders.isEmpty)
         XCTAssertEqual(opts.codec.frameType, .text)
     }
 
-    func testDefaultHeartbeatValues() {
-        let heartbeat = HeartbeatOptions()
-        XCTAssertEqual(heartbeat.pingPeriod, .seconds(20))
-        XCTAssertEqual(heartbeat.pongWait, .seconds(60))
+    func testDefaultPingIntervalAndWriteTimeout() {
+        let opts = WspulseClientOptions()
+        XCTAssertEqual(opts.pingInterval, .seconds(20))
+        XCTAssertEqual(opts.writeTimeout, .seconds(10))
     }
 
     func testDefaultAutoReconnectValues() {
@@ -38,8 +39,8 @@ final class OptionsTests: XCTestCase {
             onMessage: { _ in },
             autoReconnect: AutoReconnectOptions(
                 maxRetries: 5, baseDelay: .seconds(2), maxDelay: .seconds(60)),
-            heartbeat: HeartbeatOptions(pingPeriod: .seconds(10), pongWait: .seconds(30)),
-            writeWait: .seconds(5),
+            pingInterval: .seconds(10),
+            writeTimeout: .seconds(5),
             maxMessageSize: 2_097_152,
             sendBufferSize: 512,
             dialHeaders: ["Authorization": "Bearer token"]
@@ -49,9 +50,8 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(opts.autoReconnect?.maxRetries, 5)
         XCTAssertEqual(opts.autoReconnect?.baseDelay, .seconds(2))
         XCTAssertEqual(opts.autoReconnect?.maxDelay, .seconds(60))
-        XCTAssertEqual(opts.heartbeat.pingPeriod, .seconds(10))
-        XCTAssertEqual(opts.heartbeat.pongWait, .seconds(30))
-        XCTAssertEqual(opts.writeWait, .seconds(5))
+        XCTAssertEqual(opts.pingInterval, .seconds(10))
+        XCTAssertEqual(opts.writeTimeout, .seconds(5))
         XCTAssertEqual(opts.maxMessageSize, 2_097_152)
         XCTAssertEqual(opts.sendBufferSize, 512)
         XCTAssertEqual(opts.dialHeaders["Authorization"], "Bearer token")
@@ -76,10 +76,9 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(reconnect.baseDelay, reconnect.maxDelay)
     }
 
-    func testHeartbeatMinimalGap() {
-        let heartbeat = HeartbeatOptions(pingPeriod: .milliseconds(1), pongWait: .milliseconds(2))
-        XCTAssertEqual(heartbeat.pingPeriod, .milliseconds(1))
-        XCTAssertEqual(heartbeat.pongWait, .milliseconds(2))
+    func testPingIntervalMinimalValue() {
+        let opts = WspulseClientOptions(pingInterval: .milliseconds(1))
+        XCTAssertEqual(opts.pingInterval, .milliseconds(1))
     }
 
     func testSendBufferSizeMinimumBoundary() {
@@ -155,10 +154,9 @@ final class OptionsTests: XCTestCase {
 
     // MARK: - Max boundary values (should NOT crash)
 
-    func testHeartbeatMaxBoundaryValues() {
-        let heartbeat = HeartbeatOptions(pingPeriod: .seconds(60), pongWait: .seconds(120))
-        XCTAssertEqual(heartbeat.pingPeriod, .seconds(60))
-        XCTAssertEqual(heartbeat.pongWait, .seconds(120))
+    func testPingIntervalMaxBoundaryValue() {
+        let opts = WspulseClientOptions(pingInterval: .seconds(60))
+        XCTAssertEqual(opts.pingInterval, .seconds(60))
     }
 
     func testAutoReconnectMaxBoundaryValues() {
@@ -169,9 +167,9 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(reconnect.maxDelay, .seconds(300))
     }
 
-    func testWriteWaitMaxBoundary() {
-        let opts = WspulseClientOptions(writeWait: .seconds(30))
-        XCTAssertEqual(opts.writeWait, .seconds(30))
+    func testWriteTimeoutMaxBoundary() {
+        let opts = WspulseClientOptions(writeTimeout: .seconds(30))
+        XCTAssertEqual(opts.writeTimeout, .seconds(30))
     }
 
     func testMaxMessageSizeZeroIsValid() {

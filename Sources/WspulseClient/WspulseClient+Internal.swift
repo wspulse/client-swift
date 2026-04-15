@@ -46,8 +46,8 @@ extension WspulseClient {
     }
 
     func startPingLoop() {
-        let pingPeriod = options.heartbeat.pingPeriod
-        let pongWait = options.heartbeat.pongWait
+        let pingInterval = options.pingInterval
+        let writeTimeout = options.writeTimeout
         let conn = connection
         let slp = sleeper
 
@@ -55,7 +55,7 @@ extension WspulseClient {
             guard let self else { return }
             while !Task.isCancelled {
                 do {
-                    try await slp.sleep(for: pingPeriod)
+                    try await slp.sleep(for: pingInterval)
                 } catch {
                     return
                 }
@@ -67,7 +67,7 @@ extension WspulseClient {
                             try await conn.sendPing()
                         }
                         group.addTask {
-                            try await slp.sleep(for: pongWait)
+                            try await slp.sleep(for: writeTimeout)
                             throw WspulseError.connectionLost
                         }
                         if let result = try await group.next() {
@@ -231,7 +231,7 @@ extension WspulseClient {
     }
 
     func drainBuffer() async {
-        let writeWait = options.writeWait
+        let writeTimeout = options.writeTimeout
         let conn = connection
         let frameType = options.codec.frameType
         let slp = sleeper
@@ -243,7 +243,7 @@ extension WspulseClient {
                         try await conn.send(data, frameType: frameType)
                     }
                     group.addTask {
-                        try await slp.sleep(for: writeWait)
+                        try await slp.sleep(for: writeTimeout)
                         throw WspulseError.connectionLost
                     }
                     if let result = try await group.next() {

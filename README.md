@@ -234,8 +234,8 @@ Default: `JSONCodec` (JSON text frames).
 | `onTransportDrop` | `@Sendable (Error?) -> Void` | no-op       | Called on transport drop or clean `close()` (`nil` = clean). |
 | `sendBufferSize`  | `Int`                        | 256         | Max outbound frames buffered before `sendBufferFull` is thrown. Valid range: [1, 4096]. |
 | `autoReconnect`   | `AutoReconnectOptions?`      | `nil` (off) | Enable exponential backoff reconnect.       |
-| `heartbeat`       | `HeartbeatOptions`           | 20s / 60s   | Client-side Ping/Pong interval.             |
-| `writeWait`       | `Duration`                   | 10s         | Deadline for a single write operation.      |
+| `pingInterval`    | `Duration`                   | 20s         | Interval between Ping frames.               |
+| `writeTimeout`    | `Duration`                   | 10s         | Deadline for a single write. Also used as pong deadline. |
 | `maxMessageSize`  | `Int`                        | 1 MiB       | Max inbound message size.                   |
 | `dialHeaders`     | `[String: String]`           | `[:]`       | Extra HTTP headers for WebSocket upgrade.   |
 | `codec`           | `any WspulseCodec`           | `JSONCodec` | Wire-format codec.                          |
@@ -268,13 +268,6 @@ let options = WspulseClientOptions(
 | `maxRetries` | `Int`      | Max retries (≤ 0 = unlimited) |
 | `baseDelay`  | `Duration` | Initial backoff delay         |
 | `maxDelay`   | `Duration` | Maximum backoff delay         |
-
-### `HeartbeatOptions`
-
-| Field        | Type       | Default | Description           |
-| ------------ | ---------- | ------- | --------------------- |
-| `pingPeriod` | `Duration` | 20s     | Ping send interval    |
-| `pongWait`   | `Duration` | 60s     | Pong receive deadline |
 
 ---
 
