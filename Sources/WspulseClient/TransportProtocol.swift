@@ -18,9 +18,6 @@ protocol TransportProtocol: Actor {
     /// Receive the next message from the WebSocket.
     func receive() async throws -> Data
 
-    /// Send a WebSocket ping and wait for the pong.
-    func sendPing() async throws
-
     /// Close the WebSocket connection with a normal closure code.
     func close()
 

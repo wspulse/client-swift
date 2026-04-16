@@ -72,13 +72,10 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        // Wait for transport drop before advancing: ensures ping task is
-        // cancelled so its pending sleep won't consume reconnect credits.
         try await waitUntil { state.transportDropCalled }
 
-        // Advance past sleeps: 1 for the possibly-still-pending ping loop
-        // sleep, 1 for the reconnect backoff delay.
-        await sleeper.advance(count: 2)
+        // Advance past the reconnect backoff delay.
+        await sleeper.advance(count: 1)
 
         try await waitUntil(timeout: 5) {
             state.transportRestoreCount >= 1
@@ -140,13 +137,10 @@ final class ReconnectTests: XCTestCase {
             NSError(domain: "test", code: 1, userInfo: nil)
         )
 
-        // Wait for transport drop before advancing: ensures ping task is
-        // cancelled so its pending sleep won't consume reconnect credits.
         try await waitUntil { state.transportDropCalled }
 
-        // Advance past 3 sleeps: 1 for the possibly-still-pending ping loop
-        // sleep, plus 1 per retry backoff delay (2 retries).
-        await sleeper.advance(count: 3)
+        // Advance past 2 sleeps: 1 per retry backoff delay (2 retries).
+        await sleeper.advance(count: 2)
 
         try await waitUntil(timeout: 5) {
             state.disconnectCalled

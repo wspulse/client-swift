@@ -45,52 +45,6 @@ extension WspulseClient {
         }
     }
 
-    func startPingLoop() {
-        let pingPeriod = options.heartbeat.pingPeriod
-        let pongWait = options.heartbeat.pongWait
-        let conn = connection
-        let slp = sleeper
-
-        pingTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                do {
-                    try await slp.sleep(for: pingPeriod)
-                } catch {
-                    return
-                }
-                if Task.isCancelled { return }
-
-                do {
-                    try await withThrowingTaskGroup(of: Void.self) { group in
-                        group.addTask {
-                            try await conn.sendPing()
-                        }
-                        group.addTask {
-                            try await slp.sleep(for: pongWait)
-                            throw WspulseError.connectionLost
-                        }
-                        if let result = try await group.next() {
-                            _ = result
-                        }
-                        group.cancelAll()
-                    }
-                } catch is CancellationError {
-                    return
-                } catch {
-                    if Task.isCancelled { return }
-                    if let wspError = error as? WspulseError, wspError == .connectionLost {
-                        options.logger.warning("wspulse/client: pong timeout, closing connection")
-                    } else {
-                        options.logger.warning("wspulse/client: ping failed: \(error)")
-                    }
-                    await self.handleTransportDrop(error: error)
-                    return
-                }
-            }
-        }
-    }
-
     // MARK: - Reconnect
 
     func handleTransportDrop(error: Error) async {
@@ -98,7 +52,6 @@ extension WspulseClient {
 
         readTask?.cancel()
         writeTask?.cancel()
-        pingTask?.cancel()
 
         options.onTransportDrop?(error)
 
@@ -109,8 +62,8 @@ extension WspulseClient {
             await connection.close()
 
             // Await non-calling tasks. We cannot await the task that called
-            // handleTransportDrop (readTask or pingTask) without deadlocking,
-            // but writeTask is safe to await since it was cancelled above and
+            // handleTransportDrop (readTask) without deadlocking, but
+            // writeTask is safe to await since it was cancelled above and
             // the stream is finished.
             await writeTask?.value
             writeTask = nil
@@ -177,7 +130,6 @@ extension WspulseClient {
         await connection.close()
         do {
             try await connection.dial(url: url, headers: options.dialHeaders)
-            try await connection.sendPing()
             return true
         } catch {
             options.logger.debug("wspulse/client: reconnect dial failed: \(error)")
@@ -192,12 +144,10 @@ extension WspulseClient {
         writeSignalContinuation.finish()
         await readTask?.value
         await writeTask?.value
-        await pingTask?.value
 
         reconnecting = false
         startReadLoop()
         startWriteLoop()
-        startPingLoop()
         writeSignalContinuation.yield()
 
         options.onTransportRestore?()

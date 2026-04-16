@@ -140,44 +140,4 @@ final class MiscTests: XCTestCase {
         }
     }
 
-    // MARK: - Pong timeout
-
-    func testPongTimeoutTriggersConnectionLost() async throws {
-        let state = TestState()
-        let transport = MockTransport()
-        let sleeper = FakeSleeper()
-        await transport.suppressPongs()
-
-        let client = WspulseClient(
-            url: URL(string: "ws://127.0.0.1:9999")!,
-            options: WspulseClientOptions(
-                onDisconnect: { state.addDisconnect($0) },
-                heartbeat: HeartbeatOptions(
-                    pingPeriod: .milliseconds(50),
-                    pongWait: .milliseconds(200)
-                )
-            ),
-            transport: transport,
-            sleeper: sleeper
-        )
-        try await client.connect()
-
-        // Advance past ping period to trigger the first ping.
-        await sleeper.advance()
-        // Advance past pong wait to trigger connection lost.
-        await sleeper.advance()
-
-        try await waitUntil(timeout: 5) {
-            state.disconnectCalled
-        }
-
-        if let err = state.firstDisconnectErr as? WspulseError {
-            XCTAssertEqual(err, .connectionLost)
-        } else {
-            XCTFail(
-                "Expected .connectionLost, got "
-                    + String(describing: state.firstDisconnectErr)
-            )
-        }
-    }
 }
