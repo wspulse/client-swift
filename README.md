@@ -234,7 +234,6 @@ Default: `JSONCodec` (JSON text frames).
 | `onTransportDrop` | `@Sendable (Error?) -> Void` | no-op       | Called on transport drop or clean `close()` (`nil` = clean). |
 | `sendBufferSize`  | `Int`                        | 256         | Max outbound frames buffered before `sendBufferFull` is thrown. Valid range: [1, 4096]. |
 | `autoReconnect`   | `AutoReconnectOptions?`      | `nil` (off) | Enable exponential backoff reconnect.       |
-| `heartbeat`       | `HeartbeatOptions`           | 20s / 60s   | Client-side Ping/Pong interval.             |
 | `writeWait`       | `Duration`                   | 10s         | Deadline for a single write operation.      |
 | `maxMessageSize`  | `Int`                        | 1 MiB       | Max inbound message size.                   |
 | `dialHeaders`     | `[String: String]`           | `[:]`       | Extra HTTP headers for WebSocket upgrade.   |
@@ -269,13 +268,6 @@ let options = WspulseClientOptions(
 | `baseDelay`  | `Duration` | Initial backoff delay         |
 | `maxDelay`   | `Duration` | Maximum backoff delay         |
 
-### `HeartbeatOptions`
-
-| Field        | Type       | Default | Description           |
-| ------------ | ---------- | ------- | --------------------- |
-| `pingPeriod` | `Duration` | 20s     | Ping send interval    |
-| `pongWait`   | `Duration` | 60s     | Pong receive deadline |
-
 ---
 
 ## Features
@@ -283,7 +275,6 @@ let options = WspulseClientOptions(
 - **Auto-reconnect** — exponential backoff with configurable max retries, base delay, and max delay. Equal jitter formula: delay ∈ `[half, full]` where full = min(base × 2^attempt, max).
 - **Transport drop callback** — `onTransportDrop` fires on every transport death (even when auto-reconnect follows) and on clean `close()` with `nil`. Exactly one invocation per transport lifecycle. Useful for metrics and logging.
 - **Permanent disconnect callback** — `onDisconnect` fires exactly once when the client is truly done (`close()` called, retries exhausted, or connection lost without auto-reconnect).
-- **Heartbeat** — Client-side Ping/Pong keeps the connection alive and detects silently-dead servers.
 - **Max message size** — Inbound messages exceeding `maxMessageSize` bytes drop the connection.
 - **Backpressure** — bounded send buffer (default 256 frames, configurable via `sendBufferSize`); throws `WspulseError.sendBufferFull` when full.
 - **Actor-isolated send** — `send()` enqueues only and returns immediately, safe to call from any `Task` without holding locks.

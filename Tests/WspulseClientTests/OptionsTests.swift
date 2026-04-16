@@ -18,12 +18,6 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(opts.codec.frameType, .text)
     }
 
-    func testDefaultHeartbeatValues() {
-        let heartbeat = HeartbeatOptions()
-        XCTAssertEqual(heartbeat.pingPeriod, .seconds(20))
-        XCTAssertEqual(heartbeat.pongWait, .seconds(60))
-    }
-
     func testDefaultAutoReconnectValues() {
         let reconnect = AutoReconnectOptions()
         XCTAssertEqual(reconnect.maxRetries, 0)
@@ -38,7 +32,6 @@ final class OptionsTests: XCTestCase {
             onMessage: { _ in },
             autoReconnect: AutoReconnectOptions(
                 maxRetries: 5, baseDelay: .seconds(2), maxDelay: .seconds(60)),
-            heartbeat: HeartbeatOptions(pingPeriod: .seconds(10), pongWait: .seconds(30)),
             writeWait: .seconds(5),
             maxMessageSize: 2_097_152,
             sendBufferSize: 512,
@@ -49,8 +42,6 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(opts.autoReconnect?.maxRetries, 5)
         XCTAssertEqual(opts.autoReconnect?.baseDelay, .seconds(2))
         XCTAssertEqual(opts.autoReconnect?.maxDelay, .seconds(60))
-        XCTAssertEqual(opts.heartbeat.pingPeriod, .seconds(10))
-        XCTAssertEqual(opts.heartbeat.pongWait, .seconds(30))
         XCTAssertEqual(opts.writeWait, .seconds(5))
         XCTAssertEqual(opts.maxMessageSize, 2_097_152)
         XCTAssertEqual(opts.sendBufferSize, 512)
@@ -74,12 +65,6 @@ final class OptionsTests: XCTestCase {
     func testAutoReconnectMaxDelayEqualsBaseDelay() {
         let reconnect = AutoReconnectOptions(baseDelay: .seconds(5), maxDelay: .seconds(5))
         XCTAssertEqual(reconnect.baseDelay, reconnect.maxDelay)
-    }
-
-    func testHeartbeatMinimalGap() {
-        let heartbeat = HeartbeatOptions(pingPeriod: .milliseconds(1), pongWait: .milliseconds(2))
-        XCTAssertEqual(heartbeat.pingPeriod, .milliseconds(1))
-        XCTAssertEqual(heartbeat.pongWait, .milliseconds(2))
     }
 
     func testSendBufferSizeMinimumBoundary() {
@@ -154,12 +139,6 @@ final class OptionsTests: XCTestCase {
     }
 
     // MARK: - Max boundary values (should NOT crash)
-
-    func testHeartbeatMaxBoundaryValues() {
-        let heartbeat = HeartbeatOptions(pingPeriod: .seconds(60), pongWait: .seconds(120))
-        XCTAssertEqual(heartbeat.pingPeriod, .seconds(60))
-        XCTAssertEqual(heartbeat.pongWait, .seconds(120))
-    }
 
     func testAutoReconnectMaxBoundaryValues() {
         let reconnect = AutoReconnectOptions(

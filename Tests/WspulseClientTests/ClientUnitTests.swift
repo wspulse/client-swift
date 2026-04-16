@@ -345,20 +345,6 @@ final class ConnectionActorTests: XCTestCase {
         }
     }
 
-    // MARK: - sendPing before dial throws connectionClosed
-
-    func testSendPingBeforeDialThrowsConnectionClosed() async {
-        let connection = ConnectionActor(maxMessageSize: 1_048_576)
-        do {
-            try await connection.sendPing()
-            XCTFail("Expected WspulseError.connectionClosed")
-        } catch let error as WspulseError {
-            XCTAssertEqual(error, .connectionClosed)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-    }
-
     // MARK: - close is safe without dial
 
     func testCloseWithoutDialDoesNotCrash() async {

@@ -11,8 +11,8 @@ public enum WspulseError: Error, Sendable, Equatable {
     /// Max reconnect retries exhausted. Passed to `onDisconnect`.
     case retriesExhausted
 
-    /// Connection lost (server drop, pong timeout, or write timeout) while auto-reconnect
-    /// is off. Passed to `onDisconnect`.
+    /// Connection lost (server drop or write timeout) while auto-reconnect is off.
+    /// Passed to `onDisconnect`.
     case connectionLost
 
     /// Codec produced non-UTF8 data for a text-mode WebSocket frame.

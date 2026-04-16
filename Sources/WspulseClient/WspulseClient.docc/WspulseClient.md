@@ -12,7 +12,6 @@ Key features:
 
 - **Auto-reconnect** with exponential backoff and equal jitter.
 - **Transport drop vs. permanent disconnect** callbacks for fine-grained lifecycle control.
-- **Client-side heartbeat** (Ping/Pong) to detect silently-dead servers.
 - **Bounded send buffer** with backpressure (256 frames).
 - **Actor-isolated** `send()` and `close()` — safe to call from any `Task`.
 
@@ -27,7 +26,6 @@ Key features:
 ### Configuration
 
 - ``AutoReconnectOptions``
-- ``HeartbeatOptions``
 
 ### Codec
 

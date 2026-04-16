@@ -184,32 +184,6 @@ actor ConnectionActor: TransportProtocol {
         }
     }
 
-    /// Send a WebSocket ping and wait for the pong.
-    ///
-    /// Supports cooperative cancellation: when the calling Task is cancelled,
-    /// the underlying `URLSessionWebSocketTask` is cancelled so the pong
-    /// callback fires immediately with an error, unblocking the continuation.
-    func sendPing() async throws {
-        guard let task else {
-            throw WspulseError.connectionClosed
-        }
-        let capturedTask = task
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation {
-                (continuation: CheckedContinuation<Void, Error>) in
-                capturedTask.sendPing { error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume()
-                    }
-                }
-            }
-        } onCancel: {
-            capturedTask.cancel(with: .goingAway, reason: nil)
-        }
-    }
-
     /// Close the WebSocket connection with a normal closure code.
     func close() {
         task?.cancel(with: .normalClosure, reason: nil)

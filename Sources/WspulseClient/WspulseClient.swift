@@ -29,7 +29,7 @@ public actor WspulseClient {
     /// even if the transport is currently down (reconnecting state).
     var connected = false
     /// Prevents duplicate ``handleTransportDrop`` calls while the reconnect
-    /// loop is active (e.g. when both the read loop and ping loop detect the
+    /// loop is active (e.g. when both the read loop and write loop detect the
     /// same transport drop).
     var reconnecting = false
     var sendBuffer: RingBuffer<Data>
@@ -44,7 +44,6 @@ public actor WspulseClient {
     var readTask: Task<Void, Never>?
     var writeTask: Task<Void, Never>?
     var reconnectTask: Task<Void, Never>?
-    var pingTask: Task<Void, Never>?
 
     public init(url: URL, options: WspulseClientOptions = WspulseClientOptions()) {
         self.url = Self.normalizeScheme(url)
@@ -136,7 +135,6 @@ public actor WspulseClient {
         options.logger.debug("wspulse/client: connected url=\(self.url)")
         startReadLoop()
         startWriteLoop()
-        startPingLoop()
     }
 
     /// Enqueue a frame for delivery.
@@ -207,7 +205,6 @@ public actor WspulseClient {
         readTask?.cancel()
         writeTask?.cancel()
         reconnectTask?.cancel()
-        pingTask?.cancel()
 
         writeSignalContinuation.finish()
         sendBuffer.clear()
@@ -218,12 +215,10 @@ public actor WspulseClient {
         await readTask?.value
         await writeTask?.value
         await reconnectTask?.value
-        await pingTask?.value
 
         readTask = nil
         writeTask = nil
         reconnectTask = nil
-        pingTask = nil
 
         options.logger.info("wspulse/client: closing url=\(self.url)")
 
