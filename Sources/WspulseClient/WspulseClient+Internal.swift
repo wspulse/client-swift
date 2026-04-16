@@ -61,10 +61,11 @@ extension WspulseClient {
             writeSignalContinuation.finish()
             await connection.close()
 
-            // Await non-calling tasks. We cannot await the task that called
-            // handleTransportDrop (readTask) without deadlocking, but
-            // writeTask is safe to await since it was cancelled above and
-            // the stream is finished.
+            // Await non-calling tasks. handleTransportDrop can be called
+            // from readTask (receive error) or writeTask (send error in
+            // drainBuffer). We await writeTask here, which is safe when
+            // the caller is readTask but will deadlock when the caller
+            // is writeTask (self-await). See #30.
             await writeTask?.value
             writeTask = nil
 
