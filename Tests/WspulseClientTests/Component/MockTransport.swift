@@ -9,9 +9,7 @@ actor MockTransport: TransportProtocol {
     private var receiveContinuations: [CheckedContinuation<Data, Error>] = []
     private(set) var sentData: [Data] = []
     private(set) var dialCount = 0
-    private(set) var pingCount = 0
     private var closed = false
-    private var pongEnabled = true
     private var dialError: Error?
     private var dialSuspended = false
     private var dialContinuation: CheckedContinuation<Void, Error>?
@@ -50,17 +48,6 @@ actor MockTransport: TransportProtocol {
                 receiveContinuations.append(cont)
             }
         }
-    }
-
-    func sendPing() async throws {
-        guard !closed else { throw WspulseError.connectionClosed }
-        pingCount += 1
-        if pongEnabled {
-            return
-        }
-        // Block forever — the caller's Task group timeout will cancel
-        // this, causing Task.sleep to throw CancellationError.
-        try await Task.sleep(for: .seconds(3600))
     }
 
     func close() {
@@ -106,11 +93,6 @@ actor MockTransport: TransportProtocol {
         }
     }
 
-    /// Suppress pong replies so sendPing() blocks forever.
-    func suppressPongs() {
-        pongEnabled = false
-    }
-
     /// Configure dial to throw an error.
     func setDialError(_ error: Error?) {
         dialError = error
@@ -143,8 +125,6 @@ actor MockTransport: TransportProtocol {
         sentData.removeAll()
         receiveQueue.removeAll()
         dialCount = 0
-        pingCount = 0
-        pongEnabled = true
         dialError = nil
         dialSuspended = false
     }
@@ -173,7 +153,7 @@ actor MockTransport: TransportProtocol {
 /// Mock dialer transport that sequences multiple transports for reconnect tests.
 ///
 /// Each `dial()` call advances to the next transport in the sequence.
-/// The current transport's `send`, `receive`, `sendPing`, and `close`
+/// The current transport's `send`, `receive`, and `close`
 /// methods are forwarded to the active transport.
 actor MockDialerTransport: TransportProtocol {
     private var transports: [MockTransport]
@@ -211,13 +191,6 @@ actor MockDialerTransport: TransportProtocol {
             throw WspulseError.connectionClosed
         }
         try await current.send(data, frameType: frameType)
-    }
-
-    func sendPing() async throws {
-        guard let current else {
-            throw WspulseError.connectionClosed
-        }
-        try await current.sendPing()
     }
 
     func receive() async throws -> Data {

@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
----
+## [0.5.0] - 2026-04-17
+
+### Removed
+
+- **BREAKING**: `HeartbeatOptions` and `heartbeat` option — client-side ping is removed;
+  dead-connection detection is now handled exclusively by the Hub's server-side heartbeat.
+
 
 ## [0.4.1] - 2026-04-09
 
@@ -10,7 +16,6 @@
 
 - Internal send buffer replaced with `RingBuffer<Data>` — O(1) dequeue instead of O(n) `Array.removeFirst()`. No API or behaviour changes.
 
----
 
 ## [0.4.0] - 2026-04-06
 
@@ -35,7 +40,6 @@
 
 - **BREAKING**: `Frame.id` field removed — transport layer does not use it. Applications needing message IDs should use payload.
 
----
 
 ## [0.3.0] - 2026-03-24
 
@@ -47,7 +51,6 @@
 
 - `onReconnect` callback option (replaced by `onTransportRestore`) (**breaking**)
 
----
 
 ## [0.2.0] - 2026-03-22
 
@@ -71,7 +74,6 @@
   send-after-close-with-code, send buffer initial state.
 - DocC catalog and SPI configuration.
 
----
 
 ## [0.1.0] - 2026-03-22
 
@@ -95,7 +97,9 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/wspulse/client-swift/compare/v0.4.1...v0.5.0
+[0.4.1]: https://github.com/wspulse/client-swift/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/wspulse/client-swift/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/wspulse/client-swift/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/wspulse/client-swift/compare/v0.1.0...v0.2.0

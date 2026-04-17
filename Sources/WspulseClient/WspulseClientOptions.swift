@@ -2,8 +2,6 @@ import Foundation
 import os
 
 // Configuration upper bounds.
-private let maxPingPeriod: Duration = .seconds(60)
-private let maxPongWait: Duration = .seconds(120)
 private let maxWriteWait: Duration = .seconds(30)
 private let maxMsgSizeBytes = 64 * 1_048_576
 private let maxBaseDelay: Duration = .seconds(60)
@@ -45,29 +43,6 @@ public struct AutoReconnectOptions: Sendable {
     }
 }
 
-/// Configuration for client-side heartbeat (Ping/Pong).
-public struct HeartbeatOptions: Sendable {
-    /// Interval between Ping frames sent by the client. Range: (0s, 60s].
-    public var pingPeriod: Duration
-
-    /// Maximum time to wait for a Pong reply before closing. Range: (0s, 2m]. Must be > `pingPeriod`.
-    public var pongWait: Duration
-
-    public init(pingPeriod: Duration = .seconds(20), pongWait: Duration = .seconds(60)) {
-        precondition(pingPeriod > .zero, "wspulse: heartbeat.pingPeriod must be positive")
-        precondition(
-            pingPeriod <= maxPingPeriod, "wspulse: heartbeat.pingPeriod exceeds maximum (1m)")
-        precondition(pongWait > .zero, "wspulse: heartbeat.pongWait must be positive")
-        precondition(pongWait <= maxPongWait, "wspulse: heartbeat.pongWait exceeds maximum (2m)")
-        precondition(
-            pongWait > pingPeriod,
-            "wspulse: heartbeat.pingPeriod must be strictly less than heartbeat.pongWait"
-        )
-        self.pingPeriod = pingPeriod
-        self.pongWait = pongWait
-    }
-}
-
 /// All configuration options for ``WspulseClient``.
 public struct WspulseClientOptions: Sendable {
     /// Called for every inbound frame decoded by the codec.
@@ -89,9 +64,6 @@ public struct WspulseClientOptions: Sendable {
 
     /// Enable exponential backoff reconnect. `nil` = disabled.
     public var autoReconnect: AutoReconnectOptions?
-
-    /// Client-side Ping/Pong interval.
-    public var heartbeat: HeartbeatOptions
 
     /// Deadline for a single write operation.
     public var writeWait: Duration
@@ -117,7 +89,6 @@ public struct WspulseClientOptions: Sendable {
         onTransportRestore: (@Sendable () -> Void)? = nil,
         onTransportDrop: (@Sendable (Error?) -> Void)? = nil,
         autoReconnect: AutoReconnectOptions? = nil,
-        heartbeat: HeartbeatOptions = HeartbeatOptions(),
         writeWait: Duration = .seconds(10),
         maxMessageSize: Int = 1_048_576,
         sendBufferSize: Int = 256,
@@ -140,7 +111,6 @@ public struct WspulseClientOptions: Sendable {
         self.onTransportRestore = onTransportRestore
         self.onTransportDrop = onTransportDrop
         self.autoReconnect = autoReconnect
-        self.heartbeat = heartbeat
         self.writeWait = writeWait
         self.maxMessageSize = maxMessageSize
         self.sendBufferSize = sendBufferSize
