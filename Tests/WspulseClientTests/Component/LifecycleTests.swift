@@ -244,4 +244,44 @@ final class LifecycleTests: XCTestCase {
         // No messages should have been received (loops not started).
         XCTAssertEqual(state.receivedCount, 0)
     }
+
+    // MARK: - writeTask self-await deadlock (#30)
+
+    /// When autoReconnect is nil and a write fails, handleTransportDrop
+    /// must not deadlock by awaiting its own (writeTask) completion.
+    func testWriteFailureNoReconnectDoesNotDeadlock() async throws {
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        // Make send() throw without closing transport.
+        // readTask stays suspended on receive() — only writeTask
+        // detects the failure, which is the deadlock trigger path.
+        await transport.setSendError(
+            WspulseError.connectionLost
+        )
+        try await client.send(Frame(event: "trigger"))
+
+        // If the deadlock exists, done will never complete and
+        // this test will time out.
+        for await _ in client.done {}
+
+        XCTAssertTrue(
+            state.transportDropCalled,
+            "onTransportDrop must fire on write failure"
+        )
+        XCTAssertTrue(
+            state.disconnectCalled,
+            "onDisconnect must fire after transport drop"
+        )
+    }
 }
