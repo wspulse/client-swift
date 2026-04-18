@@ -13,6 +13,7 @@ actor MockTransport: TransportProtocol {
     private var dialError: Error?
     private var dialSuspended = false
     private var dialContinuation: CheckedContinuation<Void, Error>?
+    private var sendError: Error?
 
     func dial(url: URL, headers: [String: String]) async throws {
         dialCount += 1
@@ -33,6 +34,9 @@ actor MockTransport: TransportProtocol {
 
     func send(_ data: Data, frameType: FrameType) async throws {
         guard !closed else { throw WspulseError.connectionClosed }
+        if let error = sendError {
+            throw error
+        }
         sentData.append(data)
     }
 
@@ -93,6 +97,11 @@ actor MockTransport: TransportProtocol {
         }
     }
 
+    /// Configure send() to throw an error (without closing transport).
+    func setSendError(_ error: Error?) {
+        sendError = error
+    }
+
     /// Configure dial to throw an error.
     func setDialError(_ error: Error?) {
         dialError = error
@@ -127,6 +136,7 @@ actor MockTransport: TransportProtocol {
         dialCount = 0
         dialError = nil
         dialSuspended = false
+        sendError = nil
     }
 
     /// Whether the transport is currently closed.
