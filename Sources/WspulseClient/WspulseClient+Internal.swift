@@ -47,7 +47,10 @@ extension WspulseClient {
 
     // MARK: - Reconnect
 
-    func handleTransportDrop(error: Error) async {
+    func handleTransportDrop(
+        error: Error,
+        calledFromWriteTask: Bool = false
+    ) async {
         guard !closed, !reconnecting else { return }
 
         readTask?.cancel()
@@ -61,12 +64,15 @@ extension WspulseClient {
             writeSignalContinuation.finish()
             await connection.close()
 
-            // Await non-calling tasks. handleTransportDrop can be called
-            // from readTask (receive error) or writeTask (send error in
-            // drainBuffer). We await writeTask here, which is safe when
-            // the caller is readTask but will deadlock when the caller
-            // is writeTask (self-await). See #30.
-            await writeTask?.value
+            // Await only the non-calling task to drain it before
+            // firing onDisconnect and finishing done. Self-awaiting
+            // would deadlock. See #30.
+            if calledFromWriteTask {
+                await readTask?.value
+            } else {
+                await writeTask?.value
+            }
+            readTask = nil
             writeTask = nil
 
             options.onDisconnect?(WspulseError.connectionLost)
@@ -213,7 +219,10 @@ extension WspulseClient {
             } catch {
                 if closed { return }
                 options.logger.warning("wspulse/client: write failed: \(error)")
-                await handleTransportDrop(error: error)
+                await handleTransportDrop(
+                    error: error,
+                    calledFromWriteTask: true
+                )
                 return
             }
         }

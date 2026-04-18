@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-18
+
+### Fixed
+
+- Deadlock when `writeTask` detects a transport drop with `autoReconnect` disabled — `handleTransportDrop` no longer self-awaits the calling task (#30)
+
 ## [0.5.0] - 2026-04-17
 
 ### Removed
@@ -97,7 +103,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/wspulse/client-swift/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wspulse/client-swift/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/wspulse/client-swift/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/wspulse/client-swift/compare/v0.3.0...v0.4.0
