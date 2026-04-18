@@ -65,7 +65,8 @@ extension WspulseClient {
             await connection.close()
 
             // Await only the non-calling task to drain it before
-            // firing callbacks. Self-awaiting would deadlock. See #30.
+            // firing onDisconnect and finishing done. Self-awaiting
+            // would deadlock. See #30.
             if calledFromWriteTask {
                 await readTask?.value
             } else {

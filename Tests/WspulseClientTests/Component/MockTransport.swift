@@ -136,6 +136,7 @@ actor MockTransport: TransportProtocol {
         dialCount = 0
         dialError = nil
         dialSuspended = false
+        sendError = nil
     }
 
     /// Whether the transport is currently closed.
