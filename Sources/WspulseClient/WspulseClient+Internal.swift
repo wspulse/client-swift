@@ -64,12 +64,14 @@ extension WspulseClient {
             writeSignalContinuation.finish()
             await connection.close()
 
-            // Await the write task only when called from readTask.
-            // When called from writeTask (drainBuffer catch), awaiting
-            // writeTask would self-await and deadlock. See #30.
-            if !calledFromWriteTask {
+            // Await only the non-calling task to drain it before
+            // firing callbacks. Self-awaiting would deadlock. See #30.
+            if calledFromWriteTask {
+                await readTask?.value
+            } else {
                 await writeTask?.value
             }
+            readTask = nil
             writeTask = nil
 
             options.onDisconnect?(WspulseError.connectionLost)
