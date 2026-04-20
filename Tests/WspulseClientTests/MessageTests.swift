@@ -1,12 +1,12 @@
 import WspulseClient
 import XCTest
 
-final class FrameTests: XCTestCase {
+final class MessageTests: XCTestCase {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
     func testRoundTripAllFields() throws {
-        let frame = Frame(
+        let frame = Message(
             event: "chat.message",
             payload: .object([
                 "text": .string("hello"),
@@ -15,22 +15,22 @@ final class FrameTests: XCTestCase {
             ])
         )
         let data = try encoder.encode(frame)
-        let decoded = try decoder.decode(Frame.self, from: data)
+        let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertEqual(decoded, frame)
     }
 
     func testRoundTripNilFields() throws {
-        let frame = Frame()
+        let frame = Message()
         let data = try encoder.encode(frame)
-        let decoded = try decoder.decode(Frame.self, from: data)
+        let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertNil(decoded.event)
         XCTAssertNil(decoded.payload)
     }
 
     func testRoundTripPartialFields() throws {
-        let frame = Frame(event: "ping")
+        let frame = Message(event: "ping")
         let data = try encoder.encode(frame)
-        let decoded = try decoder.decode(Frame.self, from: data)
+        let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertEqual(decoded.event, "ping")
         XCTAssertNil(decoded.payload)
     }
@@ -121,7 +121,7 @@ final class FrameTests: XCTestCase {
     func testDecodesFromWireJSON() throws {
         let jsonString = #"{"event":"msg","payload":{"text":"hi"}}"#
         let data = jsonString.data(using: .utf8)!
-        let frame = try decoder.decode(Frame.self, from: data)
+        let frame = try decoder.decode(Message.self, from: data)
         XCTAssertEqual(frame.event, "msg")
         XCTAssertEqual(frame.payload, .object(["text": .string("hi")]))
     }
@@ -168,17 +168,17 @@ final class FrameTests: XCTestCase {
         XCTAssertFalse(AnyJSON.object([:]).isNull)
     }
 
-    // MARK: - Frame equatable
+    // MARK: - Message equatable
 
-    func testFrameEquality() {
-        let frame1 = Frame(event: "msg", payload: .string("hi"))
-        let frame2 = Frame(event: "msg", payload: .string("hi"))
+    func testMessageEquality() {
+        let frame1 = Message(event: "msg", payload: .string("hi"))
+        let frame2 = Message(event: "msg", payload: .string("hi"))
         XCTAssertEqual(frame1, frame2)
     }
 
-    func testFrameInequality() {
-        let frame1 = Frame(event: "msg", payload: .string("hi"))
-        let frame2 = Frame(event: "other", payload: .string("hi"))
+    func testMessageInequality() {
+        let frame1 = Message(event: "msg", payload: .string("hi"))
+        let frame2 = Message(event: "other", payload: .string("hi"))
         XCTAssertNotEqual(frame1, frame2)
     }
 
@@ -204,17 +204,17 @@ final class FrameTests: XCTestCase {
 
     func testDecodesEmptyWireJSON() throws {
         let data = Data("{}".utf8)
-        let frame = try decoder.decode(Frame.self, from: data)
+        let frame = try decoder.decode(Message.self, from: data)
         XCTAssertNil(frame.event)
         XCTAssertNil(frame.payload)
     }
 
-    // MARK: - Payload-only frame round-trip
+    // MARK: - Payload-only message round-trip
 
-    func testPayloadOnlyFrameRoundTrip() throws {
-        let frame = Frame(payload: .array([.number(1), .number(2)]))
+    func testPayloadOnlyMessageRoundTrip() throws {
+        let frame = Message(payload: .array([.number(1), .number(2)]))
         let data = try encoder.encode(frame)
-        let decoded = try decoder.decode(Frame.self, from: data)
+        let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertNil(decoded.event)
         XCTAssertEqual(decoded.payload, .array([.number(1), .number(2)]))
     }
@@ -290,23 +290,23 @@ final class FrameTests: XCTestCase {
         XCTAssertEqual(decoded, json)
     }
 
-    // MARK: - Frame inequality on different fields
+    // MARK: - Message inequality on different fields
 
-    func testFrameInequalityOnEvent() {
-        let frame1 = Frame(event: "msg", payload: .string("a"))
-        let frame2 = Frame(event: "other", payload: .string("a"))
+    func testMessageInequalityOnEvent() {
+        let frame1 = Message(event: "msg", payload: .string("a"))
+        let frame2 = Message(event: "other", payload: .string("a"))
         XCTAssertNotEqual(frame1, frame2)
     }
 
-    func testFrameInequalityOnPayload() {
-        let frame1 = Frame(event: "msg", payload: .string("a"))
-        let frame2 = Frame(event: "msg", payload: .string("b"))
+    func testMessageInequalityOnPayload() {
+        let frame1 = Message(event: "msg", payload: .string("a"))
+        let frame2 = Message(event: "msg", payload: .string("b"))
         XCTAssertNotEqual(frame1, frame2)
     }
 
-    func testFrameInequalityNilVsNonNil() {
-        let frame1 = Frame(event: "msg")
-        let frame2 = Frame(event: "msg", payload: .null)
+    func testMessageInequalityNilVsNonNil() {
+        let frame1 = Message(event: "msg")
+        let frame2 = Message(event: "msg", payload: .null)
         XCTAssertNotEqual(frame1, frame2)
     }
 }

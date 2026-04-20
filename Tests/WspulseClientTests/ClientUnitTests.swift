@@ -11,7 +11,7 @@ final class ClientUnitTests: XCTestCase {
         )
         await client.close()
         do {
-            try await client.send(Frame(event: "msg"))
+            try await client.send(Message(event: "msg"))
             XCTFail("Expected WspulseError.connectionClosed")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .connectionClosed)
@@ -97,7 +97,7 @@ final class ClientUnitTests: XCTestCase {
 
         // The 257th send must throw sendBufferFull
         do {
-            try await client.send(Frame(event: "overflow"))
+            try await client.send(Message(event: "overflow"))
             XCTFail("Expected WspulseError.sendBufferFull")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .sendBufferFull)
@@ -179,7 +179,7 @@ final class ClientUnitTests: XCTestCase {
         // But send() checks closed first — we need to set started=true via connect path.
         // Since closed=false by default, send() should hit the buffer-full guard.
         do {
-            try await client.send(Frame(event: "overflow"))
+            try await client.send(Message(event: "overflow"))
             XCTFail("Expected WspulseError.sendBufferFull")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .sendBufferFull)
@@ -202,7 +202,7 @@ final class ClientUnitTests: XCTestCase {
 
         // The 5th send must throw sendBufferFull
         do {
-            try await client.send(Frame(event: "overflow"))
+            try await client.send(Message(event: "overflow"))
             XCTFail("Expected WspulseError.sendBufferFull")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .sendBufferFull)
@@ -217,7 +217,7 @@ final class ClientUnitTests: XCTestCase {
             options: WspulseClientOptions(codec: FailingCodec())
         )
         do {
-            try await client.send(Frame(event: "test"))
+            try await client.send(Message(event: "test"))
             XCTFail("Expected encoding error from failing codec")
         } catch is WspulseError {
             // connectionClosed — because the client isn't connected
@@ -227,23 +227,23 @@ final class ClientUnitTests: XCTestCase {
         }
     }
 
-    // MARK: - decodeFrame returns nil on invalid data
+    // MARK: - decodeMessage returns nil on invalid data
 
-    func testDecodeFrameReturnsNilOnBadData() async {
+    func testDecodeMessageReturnsNilOnBadData() async {
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!
         )
-        let result = await client.decodeFrame(Data("not-json".utf8))
+        let result = await client.decodeMessage(Data("not-json".utf8))
         XCTAssertNil(result)
     }
 
-    func testDecodeFrameReturnsFrameOnValidData() async throws {
+    func testDecodeMessageReturnsMessageOnValidData() async throws {
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!
         )
-        let frame = Frame(event: "test")
+        let frame = Message(event: "test")
         let data = try JSONEncoder().encode(frame)
-        let result = await client.decodeFrame(data)
+        let result = await client.decodeMessage(data)
         XCTAssertEqual(result?.event, "test")
     }
 
@@ -255,20 +255,20 @@ final class ClientUnitTests: XCTestCase {
             url: URL(string: "ws://127.0.0.1:0")!,
             options: WspulseClientOptions(onMessage: { _ in state.increment() })
         )
-        await client.handleMessage(Frame(event: "test"))
+        await client.handleMessage(Message(event: "test"))
         XCTAssertEqual(state.count, 1)
     }
 
-    // MARK: - decodeFrame returns nil on codec failure
+    // MARK: - decodeMessage returns nil on codec failure
 
     func testDecodeFrameReturnsNilOnCodecFailure() async {
-        // Verify decodeFrame returns nil when the codec fails to decode.
+        // Verify decodeMessage returns nil when the codec fails to decode.
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!,
             options: WspulseClientOptions(codec: FailingCodec())
         )
-        let result = await client.decodeFrame(Data("test".utf8))
-        XCTAssertNil(result, "FailingCodec should cause decodeFrame to return nil")
+        let result = await client.decodeMessage(Data("test".utf8))
+        XCTAssertNil(result, "FailingCodec should cause decodeMessage to return nil")
     }
 
     // MARK: - send buffer is empty after init
@@ -322,7 +322,7 @@ final class ConnectionActorTests: XCTestCase {
     func testSendBeforeDialThrowsConnectionClosed() async {
         let connection = ConnectionActor(maxMessageSize: 1_048_576)
         do {
-            try await connection.send(Data("hello".utf8), frameType: .text)
+            try await connection.send(Data("hello".utf8), wireType: .text)
             XCTFail("Expected WspulseError.connectionClosed")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .connectionClosed)
@@ -381,7 +381,7 @@ final class ConnectionActorTests: XCTestCase {
         let connection = ConnectionActor(maxMessageSize: 1_048_576)
         await connection.close(code: .goingAway)
         do {
-            try await connection.send(Data("hello".utf8), frameType: .text)
+            try await connection.send(Data("hello".utf8), wireType: .text)
             XCTFail("Expected WspulseError.connectionClosed")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .connectionClosed)
@@ -396,7 +396,7 @@ final class ConnectionActorTests: XCTestCase {
         let connection = ConnectionActor(maxMessageSize: 1_048_576)
         await connection.close()
         do {
-            try await connection.send(Data("hello".utf8), frameType: .text)
+            try await connection.send(Data("hello".utf8), wireType: .text)
             XCTFail("Expected WspulseError.connectionClosed")
         } catch let error as WspulseError {
             XCTAssertEqual(error, .connectionClosed)
@@ -448,25 +448,25 @@ private final class CallbackState: @unchecked Sendable {
 }
 
 private struct MockCodec: WspulseCodec {
-    var frameType: FrameType { .text }
+    var wireType: WireType { .text }
 
-    func encode(_ frame: Frame) throws -> Data {
-        try JSONEncoder().encode(frame)
+    func encode(_ message: Message) throws -> Data {
+        try JSONEncoder().encode(message)
     }
 
-    func decode(_ data: Data) throws -> Frame {
-        try JSONDecoder().decode(Frame.self, from: data)
+    func decode(_ data: Data) throws -> Message {
+        try JSONDecoder().decode(Message.self, from: data)
     }
 }
 
 private struct FailingCodec: WspulseCodec {
-    var frameType: FrameType { .text }
+    var wireType: WireType { .text }
 
-    func encode(_ frame: Frame) throws -> Data {
+    func encode(_ message: Message) throws -> Data {
         throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "encode failed"])
     }
 
-    func decode(_ data: Data) throws -> Frame {
+    func decode(_ data: Data) throws -> Message {
         throw NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "decode failed"])
     }
 }

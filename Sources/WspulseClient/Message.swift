@@ -1,7 +1,7 @@
 import Foundation
 
-/// The minimal transport unit. All fields are optional at the wire layer.
-public struct Frame: Codable, Sendable, Equatable {
+/// The minimal application-layer message. All fields are optional at the wire layer.
+public struct Message: Codable, Sendable, Equatable {
     /// Application-defined event name.
     public var event: String?
 

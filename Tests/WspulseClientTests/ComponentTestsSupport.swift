@@ -7,17 +7,17 @@ import XCTest
 /// Thread-safe state collector for component test callbacks.
 final class TestState: @unchecked Sendable {
     private let lock = NSLock()
-    private var _received: [Frame] = []
+    private var _received: [Message] = []
     private var _disconnects: [Error?] = []
     private var _transportDrops: [Error?] = []
     private var _transportRestoreCount = 0
 
-    func addReceived(_ frame: Frame) { lock.withLock { _received.append(frame) } }
+    func addReceived(_ message: Message) { lock.withLock { _received.append(message) } }
     func addDisconnect(_ err: Error?) { lock.withLock { _disconnects.append(err) } }
     func addTransportDrop(_ err: Error?) { lock.withLock { _transportDrops.append(err) } }
     func addTransportRestore() { lock.withLock { _transportRestoreCount += 1 } }
 
-    var received: [Frame] { lock.withLock { _received } }
+    var received: [Message] { lock.withLock { _received } }
     var receivedCount: Int { lock.withLock { _received.count } }
     var disconnectCount: Int { lock.withLock { _disconnects.count } }
     var transportRestoreCount: Int { lock.withLock { _transportRestoreCount } }

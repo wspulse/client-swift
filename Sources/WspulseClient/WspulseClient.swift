@@ -9,7 +9,7 @@ import os
 ///
 /// All public methods are actor-isolated, ensuring thread safety.
 /// Use ``connect()`` to establish the connection, ``send(_:)`` to enqueue
-/// frames, and ``close()`` to permanently terminate.
+/// messages, and ``close()`` to permanently terminate.
 public actor WspulseClient {
     /// Yields once and finishes when the client is permanently disconnected.
     nonisolated public let done: AsyncStream<Void>
@@ -137,15 +137,15 @@ public actor WspulseClient {
         startWriteLoop()
     }
 
-    /// Enqueue a frame for delivery.
+    /// Enqueue a message for delivery.
     ///
     /// - Throws: ``WspulseError/connectionClosed`` if the client is closed.
     /// - Throws: ``WspulseError/sendBufferFull`` if the buffer is full.
-    /// - Throws: An error from the codec if frame serialization fails.
-    public func send(_ frame: Frame) throws {
+    /// - Throws: An error from the codec if message serialization fails.
+    public func send(_ message: Message) throws {
         guard !closed else { throw WspulseError.connectionClosed }
 
-        let data = try options.codec.encode(frame)
+        let data = try options.codec.encode(message)
 
         guard sendBuffer.push(data) else {
             throw WspulseError.sendBufferFull

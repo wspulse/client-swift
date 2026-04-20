@@ -12,7 +12,7 @@ Key features:
 
 - **Auto-reconnect** with exponential backoff and equal jitter.
 - **Transport drop vs. permanent disconnect** callbacks for fine-grained lifecycle control.
-- **Bounded send buffer** with backpressure (256 frames).
+- **Bounded send buffer** with backpressure (256 messages).
 - **Actor-isolated** `send()` and `close()` — safe to call from any `Task`.
 
 ## Topics
@@ -20,7 +20,7 @@ Key features:
 ### Essentials
 
 - ``WspulseClient/WspulseClient``
-- ``Frame``
+- ``Message``
 - ``WspulseClientOptions``
 
 ### Configuration
@@ -31,7 +31,7 @@ Key features:
 
 - ``WspulseCodec``
 - ``JSONCodec``
-- ``FrameType``
+- ``WireType``
 
 ### Data
 

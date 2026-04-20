@@ -11,8 +11,8 @@ final class BasicTests: XCTestCase {
 
     private let codec = JSONCodec()
 
-    private func encode(_ frame: Frame) throws -> Data {
-        try codec.encode(frame)
+    private func encode(_ message: Message) throws -> Data {
+        try codec.encode(message)
     }
 
     private func waitUntil(
@@ -50,7 +50,7 @@ final class BasicTests: XCTestCase {
         )
         try await client.connect()
 
-        let outbound = Frame(
+        let outbound = Message(
             event: "msg",
             payload: .object(["text": .string("hello")])
         )
@@ -79,9 +79,9 @@ final class BasicTests: XCTestCase {
         }
     }
 
-    // MARK: - Frame field round-trip
+    // MARK: - Message field round-trip
 
-    func testRoundTripsAllFrameFields() async throws {
+    func testRoundTripsAllMessageFields() async throws {
         let state = TestState()
         let transport = MockTransport()
 
@@ -94,7 +94,7 @@ final class BasicTests: XCTestCase {
         )
         try await client.connect()
 
-        let outbound = Frame(
+        let outbound = Message(
             event: "chat.message",
             payload: .object([
                 "user": .string("alice"),
@@ -142,7 +142,7 @@ final class BasicTests: XCTestCase {
 
     // MARK: - Message ordering
 
-    func testReceivesFramesInOrder() async throws {
+    func testReceivesMessagesInOrder() async throws {
         let count = 10
         let state = TestState()
         let transport = MockTransport()
@@ -157,7 +157,7 @@ final class BasicTests: XCTestCase {
         try await client.connect()
 
         for idx in 0..<count {
-            let frame = Frame(
+            let frame = Message(
                 event: "seq",
                 payload: .object(["i": .number(Double(idx))])
             )
@@ -196,7 +196,7 @@ final class BasicTests: XCTestCase {
         )
         try await client.connect()
 
-        let frame = Frame(
+        let frame = Message(
             event: "ping", payload: .string("pong")
         )
         let data = try encode(frame)

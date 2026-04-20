@@ -32,7 +32,7 @@ actor MockTransport: TransportProtocol {
         closed = false
     }
 
-    func send(_ data: Data, frameType: FrameType) async throws {
+    func send(_ data: Data, wireType: WireType) async throws {
         guard !closed else { throw WspulseError.connectionClosed }
         if let error = sendError {
             throw error
@@ -196,11 +196,11 @@ actor MockDialerTransport: TransportProtocol {
         closed = false
     }
 
-    func send(_ data: Data, frameType: FrameType) async throws {
+    func send(_ data: Data, wireType: WireType) async throws {
         guard let current else {
             throw WspulseError.connectionClosed
         }
-        try await current.send(data, frameType: frameType)
+        try await current.send(data, wireType: wireType)
     }
 
     func receive() async throws -> Data {
