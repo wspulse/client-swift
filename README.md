@@ -186,7 +186,7 @@ let client = WspulseClient(
 | ----------------- | ------------------------------------------- | ------------------------------------------------- |
 | `init`            | `(url: URL, options: WspulseClientOptions)` | Create a client. Does not connect yet.            |
 | `connect()`       | `async throws`                              | Establish the WebSocket connection.               |
-| `send(_:)`        | `(Message) async throws`                    | Enqueue a message for delivery.                   |
+| `send(_:)`        | `(Message) throws`                          | Enqueue a message for delivery (actor-isolated).  |
 | `close()`         | `async`                                     | Permanently close. Idempotent.                    |
 | `done`            | `AsyncStream<Void>`                         | Yields once and finishes on permanent disconnect. |
 
