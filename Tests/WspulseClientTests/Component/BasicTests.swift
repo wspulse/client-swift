@@ -157,11 +157,11 @@ final class BasicTests: XCTestCase {
         try await client.connect()
 
         for idx in 0..<count {
-            let frame = Message(
+            let message = Message(
                 event: "seq",
                 payload: .object(["i": .number(Double(idx))])
             )
-            let data = try encode(frame)
+            let data = try encode(message)
             await transport.injectData(data)
         }
 
@@ -196,10 +196,10 @@ final class BasicTests: XCTestCase {
         )
         try await client.connect()
 
-        let frame = Message(
+        let message = Message(
             event: "ping", payload: .string("pong")
         )
-        let data = try encode(frame)
+        let data = try encode(message)
         await transport.injectData(data)
 
         try await waitUntil { state.receivedCount >= 1 }

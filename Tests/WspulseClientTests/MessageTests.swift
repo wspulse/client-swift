@@ -6,7 +6,7 @@ final class MessageTests: XCTestCase {
     private let decoder = JSONDecoder()
 
     func testRoundTripAllFields() throws {
-        let frame = Message(
+        let message = Message(
             event: "chat.message",
             payload: .object([
                 "text": .string("hello"),
@@ -14,22 +14,22 @@ final class MessageTests: XCTestCase {
                 "active": .bool(true),
             ])
         )
-        let data = try encoder.encode(frame)
+        let data = try encoder.encode(message)
         let decoded = try decoder.decode(Message.self, from: data)
-        XCTAssertEqual(decoded, frame)
+        XCTAssertEqual(decoded, message)
     }
 
     func testRoundTripNilFields() throws {
-        let frame = Message()
-        let data = try encoder.encode(frame)
+        let message = Message()
+        let data = try encoder.encode(message)
         let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertNil(decoded.event)
         XCTAssertNil(decoded.payload)
     }
 
     func testRoundTripPartialFields() throws {
-        let frame = Message(event: "ping")
-        let data = try encoder.encode(frame)
+        let message = Message(event: "ping")
+        let data = try encoder.encode(message)
         let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertEqual(decoded.event, "ping")
         XCTAssertNil(decoded.payload)
@@ -121,9 +121,9 @@ final class MessageTests: XCTestCase {
     func testDecodesFromWireJSON() throws {
         let jsonString = #"{"event":"msg","payload":{"text":"hi"}}"#
         let data = jsonString.data(using: .utf8)!
-        let frame = try decoder.decode(Message.self, from: data)
-        XCTAssertEqual(frame.event, "msg")
-        XCTAssertEqual(frame.payload, .object(["text": .string("hi")]))
+        let message = try decoder.decode(Message.self, from: data)
+        XCTAssertEqual(message.event, "msg")
+        XCTAssertEqual(message.payload, .object(["text": .string("hi")]))
     }
 
     // MARK: - AnyJSON convenience accessor wrong-type returns nil
@@ -171,15 +171,15 @@ final class MessageTests: XCTestCase {
     // MARK: - Message equatable
 
     func testMessageEquality() {
-        let frame1 = Message(event: "msg", payload: .string("hi"))
-        let frame2 = Message(event: "msg", payload: .string("hi"))
-        XCTAssertEqual(frame1, frame2)
+        let message1 = Message(event: "msg", payload: .string("hi"))
+        let message2 = Message(event: "msg", payload: .string("hi"))
+        XCTAssertEqual(message1, message2)
     }
 
     func testMessageInequality() {
-        let frame1 = Message(event: "msg", payload: .string("hi"))
-        let frame2 = Message(event: "other", payload: .string("hi"))
-        XCTAssertNotEqual(frame1, frame2)
+        let message1 = Message(event: "msg", payload: .string("hi"))
+        let message2 = Message(event: "other", payload: .string("hi"))
+        XCTAssertNotEqual(message1, message2)
     }
 
     // MARK: - AnyJSON empty containers
@@ -204,16 +204,16 @@ final class MessageTests: XCTestCase {
 
     func testDecodesEmptyWireJSON() throws {
         let data = Data("{}".utf8)
-        let frame = try decoder.decode(Message.self, from: data)
-        XCTAssertNil(frame.event)
-        XCTAssertNil(frame.payload)
+        let message = try decoder.decode(Message.self, from: data)
+        XCTAssertNil(message.event)
+        XCTAssertNil(message.payload)
     }
 
     // MARK: - Payload-only message round-trip
 
     func testPayloadOnlyMessageRoundTrip() throws {
-        let frame = Message(payload: .array([.number(1), .number(2)]))
-        let data = try encoder.encode(frame)
+        let message = Message(payload: .array([.number(1), .number(2)]))
+        let data = try encoder.encode(message)
         let decoded = try decoder.decode(Message.self, from: data)
         XCTAssertNil(decoded.event)
         XCTAssertEqual(decoded.payload, .array([.number(1), .number(2)]))
@@ -293,20 +293,20 @@ final class MessageTests: XCTestCase {
     // MARK: - Message inequality on different fields
 
     func testMessageInequalityOnEvent() {
-        let frame1 = Message(event: "msg", payload: .string("a"))
-        let frame2 = Message(event: "other", payload: .string("a"))
-        XCTAssertNotEqual(frame1, frame2)
+        let message1 = Message(event: "msg", payload: .string("a"))
+        let message2 = Message(event: "other", payload: .string("a"))
+        XCTAssertNotEqual(message1, message2)
     }
 
     func testMessageInequalityOnPayload() {
-        let frame1 = Message(event: "msg", payload: .string("a"))
-        let frame2 = Message(event: "msg", payload: .string("b"))
-        XCTAssertNotEqual(frame1, frame2)
+        let message1 = Message(event: "msg", payload: .string("a"))
+        let message2 = Message(event: "msg", payload: .string("b"))
+        XCTAssertNotEqual(message1, message2)
     }
 
     func testMessageInequalityNilVsNonNil() {
-        let frame1 = Message(event: "msg")
-        let frame2 = Message(event: "msg", payload: .null)
-        XCTAssertNotEqual(frame1, frame2)
+        let message1 = Message(event: "msg")
+        let message2 = Message(event: "msg", payload: .null)
+        XCTAssertNotEqual(message1, message2)
     }
 }
