@@ -9,23 +9,23 @@ final class CodecTests: XCTestCase {
     }
 
     func testEncodeDecodeRoundTrip() throws {
-        let frame = Message(event: "test", payload: .string("data"))
-        let data = try codec.encode(frame)
+        let message = Message(event: "test", payload: .string("data"))
+        let data = try codec.encode(message)
         let decoded = try codec.decode(data)
-        XCTAssertEqual(decoded, frame)
+        XCTAssertEqual(decoded, message)
     }
 
     func testEncodeDecodeEmptyMessage() throws {
-        let frame = Message()
-        let data = try codec.encode(frame)
+        let message = Message()
+        let data = try codec.encode(message)
         let decoded = try codec.decode(data)
         XCTAssertNil(decoded.event)
         XCTAssertNil(decoded.payload)
     }
 
     func testEncodeProducesValidJSON() throws {
-        let frame = Message(event: "ping")
-        let data = try codec.encode(frame)
+        let message = Message(event: "ping")
+        let data = try codec.encode(message)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         XCTAssertNotNil(json)
         XCTAssertEqual(json?["event"] as? String, "ping")
@@ -37,21 +37,21 @@ final class CodecTests: XCTestCase {
     }
 
     func testEncodeDecodeComplexPayload() throws {
-        let frame = Message(
+        let message = Message(
             event: "data",
             payload: .object([
                 "numbers": .array([.number(1), .number(2), .number(3)]),
                 "nested": .object(["key": .bool(true)]),
             ])
         )
-        let data = try codec.encode(frame)
+        let data = try codec.encode(message)
         let decoded = try codec.decode(data)
-        XCTAssertEqual(decoded, frame)
+        XCTAssertEqual(decoded, message)
     }
 
     func testEncodeProducesUTF8Data() throws {
-        let frame = Message(event: "test", payload: .string("日本語"))
-        let data = try codec.encode(frame)
+        let message = Message(event: "test", payload: .string("日本語"))
+        let data = try codec.encode(message)
         let str = String(data: data, encoding: .utf8)
         XCTAssertNotNil(str, "Encoded data must be valid UTF-8")
         XCTAssertTrue(str!.contains("日本語"))
@@ -60,9 +60,9 @@ final class CodecTests: XCTestCase {
     func testDecodePartialMessageKeepsNils() throws {
         let json = #"{"event":"ping"}"#
         let data = json.data(using: .utf8)!
-        let frame = try codec.decode(data)
-        XCTAssertEqual(frame.event, "ping")
-        XCTAssertNil(frame.payload)
+        let message = try codec.decode(data)
+        XCTAssertEqual(message.event, "ping")
+        XCTAssertNil(message.payload)
     }
 
     func testCustomBinaryCodecWireType() {
@@ -72,10 +72,10 @@ final class CodecTests: XCTestCase {
 
     func testCustomCodecRoundTrip() throws {
         let binaryCodec = StubBinaryCodec()
-        let frame = Message(event: "data", payload: .string("b1"))
-        let encoded = try binaryCodec.encode(frame)
+        let message = Message(event: "data", payload: .string("b1"))
+        let encoded = try binaryCodec.encode(message)
         let decoded = try binaryCodec.decode(encoded)
-        XCTAssertEqual(decoded, frame)
+        XCTAssertEqual(decoded, message)
     }
 }
 
