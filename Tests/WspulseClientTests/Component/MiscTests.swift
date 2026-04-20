@@ -68,7 +68,7 @@ final class MiscTests: XCTestCase {
         )
         try await client.connect()
 
-        try await sendConcurrentFrames(
+        try await sendConcurrentMessages(
             client: client, senders: senders,
             msgsPerSender: msgsPerSender
         )
@@ -96,7 +96,7 @@ final class MiscTests: XCTestCase {
         await client.close()
     }
 
-    private func sendConcurrentFrames(
+    private func sendConcurrentMessages(
         client: WspulseClient,
         senders: Int,
         msgsPerSender: Int
