@@ -91,8 +91,8 @@ final class OptionsTests: XCTestCase {
 
     func testOnMessageCallbackIsInvoked() {
         let expectation = XCTestExpectation(description: "onMessage called")
-        let opts = WspulseClientOptions(onMessage: { frame in
-            XCTAssertEqual(frame.event, "test")
+        let opts = WspulseClientOptions(onMessage: { message in
+            XCTAssertEqual(message.event, "test")
             expectation.fulfill()
         })
         opts.onMessage?(Message(event: "test"))
