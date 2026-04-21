@@ -188,5 +188,11 @@ final class CallbackTests: XCTestCase {
         }
         XCTAssertEqual(code, StatusCode.goingAway)
         XCTAssertEqual(reason, "server shutting down")
+
+        // With autoReconnect = nil, the injected error must drive the client
+        // to disconnect. Wait for that and drain `client.done` so the test
+        // does not leave background tasks running past its end.
+        try await waitUntil { state.disconnectCalled }
+        for await _ in client.done {}
     }
 }

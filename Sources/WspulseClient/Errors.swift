@@ -22,10 +22,8 @@ public enum WspulseError: Error, Sendable, Equatable {
     /// read directly from the frame so callers can distinguish disconnect
     /// causes (e.g. ``StatusCode/goingAway`` vs ``StatusCode/policyViolation``).
     ///
-    /// Delivered to ``WspulseClientOptions/onTransportDrop`` as the cause.
-    /// Pseudo-codes ``StatusCode/noStatusReceived`` and
-    /// ``StatusCode/abnormalClosure`` are NOT reported through this case —
-    /// they surface as ``connectionLost``.
+    /// Delivered to ``WspulseClientOptions/onTransportDrop`` when a close
+    /// frame is received from the server.
     case serverClosed(code: StatusCode, reason: String)
 }
 
@@ -50,7 +48,9 @@ extension WspulseError: CustomStringConvertible {
             if reason.isEmpty {
                 return "wspulse: server closed connection: code=\(code.rawValue)"
             }
-            return "wspulse: server closed connection: code=\(code.rawValue), reason=\"\(reason)\""
+            // String(reflecting:) wraps the value in quotes and escapes
+            // embedded quotes, newlines, and other control characters.
+            return "wspulse: server closed connection: code=\(code.rawValue), reason=\(String(reflecting: reason))"
         }
     }
 }
