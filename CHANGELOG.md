@@ -27,13 +27,11 @@
 - **BREAKING**: `HeartbeatOptions` and `heartbeat` option — client-side ping is removed;
   dead-connection detection is now handled exclusively by the Hub's server-side heartbeat.
 
-
 ## [0.4.1] - 2026-04-09
 
 ### Changed
 
 - Internal send buffer replaced with `RingBuffer<Data>` — O(1) dequeue instead of O(n) `Array.removeFirst()`. No API or behaviour changes.
-
 
 ## [0.4.0] - 2026-04-06
 
@@ -58,7 +56,6 @@
 
 - **BREAKING**: `Frame.id` field removed — transport layer does not use it. Applications needing message IDs should use payload.
 
-
 ## [0.3.0] - 2026-03-24
 
 ### Added
@@ -68,7 +65,6 @@
 ### Removed
 
 - `onReconnect` callback option (replaced by `onTransportRestore`) (**breaking**)
-
 
 ## [0.2.0] - 2026-03-22
 
@@ -91,7 +87,6 @@
 - Unit tests: codec failure decoding, ConnectionActor multiple close,
   send-after-close-with-code, send buffer initial state.
 - DocC catalog and SPI configuration.
-
 
 ## [0.1.0] - 2026-03-22
 
