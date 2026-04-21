@@ -204,10 +204,19 @@ actor ConnectionActor: TransportProtocol {
             // (the close handler cancels the task after capturing the frame).
             // If we captured a real server close frame, surface it as
             // .serverClosed so onTransportDrop can distinguish the cause.
-            // Pseudo-codes 1005/1006 indicate no real close frame was received.
+            // RFC 6455 §7.4.1 defines three pseudo-codes that must NOT appear
+            // on the wire — they are synthesized by the implementation:
+            //   1005 noStatusReceived — close frame with no status body
+            //   1006 abnormalClosure  — TCP drop without a close handshake
+            //   1015 tlsHandshake     — TLS failure (URLSession-synthesized)
+            // Any of these means no real server close frame was received.
+            let pseudoCodes: Set<UInt16> = [
+                StatusCode.noStatusReceived.rawValue,
+                StatusCode.abnormalClosure.rawValue,
+                StatusCode.tlsHandshake.rawValue,
+            ]
             if let captured = connectionDelegate?.serverClose,
-               captured.code != StatusCode.noStatusReceived.rawValue,
-               captured.code != StatusCode.abnormalClosure.rawValue
+                !pseudoCodes.contains(captured.code)
             {
                 throw WspulseError.serverClosed(
                     code: StatusCode(rawValue: captured.code),
