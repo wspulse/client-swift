@@ -158,4 +158,35 @@ final class CallbackTests: XCTestCase {
             "onTransportDrop(nil) must fire before onDisconnect(nil)"
         )
     }
+
+    // MARK: - Server close frame delivers serverClosed error
+
+    func testServerCloseFrameDeliversServerClosedError() async throws {
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        await transport.injectError(
+            WspulseError.serverClosed(code: StatusCode.goingAway, reason: "server shutting down")
+        )
+
+        try await waitUntil { state.transportDropCalled }
+
+        let err = state.firstTransportDropErr.flatMap { $0 }
+        guard case .serverClosed(let code, let reason) = err as? WspulseError else {
+            XCTFail("expected .serverClosed, got \(String(describing: err))")
+            return
+        }
+        XCTAssertEqual(code, StatusCode.goingAway)
+        XCTAssertEqual(reason, "server shutting down")
+    }
 }

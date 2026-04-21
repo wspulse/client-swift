@@ -17,6 +17,16 @@ public enum WspulseError: Error, Sendable, Equatable {
 
     /// Codec produced non-UTF8 data for a text-mode WebSocket frame.
     case encodingFailed
+
+    /// Server sent a WebSocket close frame. Carries the code and reason
+    /// read directly from the frame so callers can distinguish disconnect
+    /// causes (e.g. ``StatusCode/goingAway`` vs ``StatusCode/policyViolation``).
+    ///
+    /// Delivered to ``WspulseClientOptions/onTransportDrop`` as the cause.
+    /// Pseudo-codes ``StatusCode/noStatusReceived`` and
+    /// ``StatusCode/abnormalClosure`` are NOT reported through this case —
+    /// they surface as ``connectionLost``.
+    case serverClosed(code: StatusCode, reason: String)
 }
 
 extension WspulseError: LocalizedError {
@@ -36,6 +46,11 @@ extension WspulseError: CustomStringConvertible {
             return "wspulse: connection lost"
         case .encodingFailed:
             return "wspulse: codec produced non-UTF8 data for text frame"
+        case .serverClosed(let code, let reason):
+            if reason.isEmpty {
+                return "wspulse: server closed connection: code=\(code.rawValue)"
+            }
+            return "wspulse: server closed connection: code=\(code.rawValue), reason=\"\(reason)\""
         }
     }
 }

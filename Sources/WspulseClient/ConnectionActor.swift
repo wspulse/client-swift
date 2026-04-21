@@ -19,6 +19,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
     private var onFail: ((Error) -> Void)?
     private var onClose: (() -> Void)?
     private var closeFired = false
+    private var _serverClose: (code: UInt16, reason: String)?
 
     func configure(onOpen: @escaping () -> Void, onFail: @escaping (Error) -> Void) {
         lock.withLock {
@@ -39,6 +40,12 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
             return false
         }
         if shouldCallNow { handler() }
+    }
+
+    /// Server close frame details captured from `didCloseWith:`, or nil if the
+    /// connection dropped without a close frame (abnormal closure).
+    var serverClose: (code: UInt16, reason: String)? {
+        lock.withLock { _serverClose }
     }
 
     func urlSession(
@@ -67,6 +74,15 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
+        let reasonString: String
+        if let reason, let decoded = String(data: reason, encoding: .utf8) {
+            reasonString = decoded
+        } else {
+            reasonString = ""
+        }
+        lock.withLock {
+            _serverClose = (code: UInt16(closeCode.rawValue), reason: reasonString)
+        }
         fireOnClose()
     }
 
@@ -170,17 +186,35 @@ actor ConnectionActor: TransportProtocol {
         guard let task else {
             throw WspulseError.connectionClosed
         }
-        let message = try await task.receive()
-        switch message {
-        case .string(let text):
-            guard let data = text.data(using: .utf8) else {
+        do {
+            let message = try await task.receive()
+            switch message {
+            case .string(let text):
+                guard let data = text.data(using: .utf8) else {
+                    throw WspulseError.connectionClosed
+                }
+                return data
+            case .data(let data):
+                return data
+            @unknown default:
                 throw WspulseError.connectionClosed
             }
-            return data
-        case .data(let data):
-            return data
-        @unknown default:
-            throw WspulseError.connectionClosed
+        } catch {
+            // The delegate's didCloseWith: fires before task.receive() throws
+            // (the close handler cancels the task after capturing the frame).
+            // If we captured a real server close frame, surface it as
+            // .serverClosed so onTransportDrop can distinguish the cause.
+            // Pseudo-codes 1005/1006 indicate no real close frame was received.
+            if let captured = connectionDelegate?.serverClose,
+               captured.code != StatusCode.noStatusReceived.rawValue,
+               captured.code != StatusCode.abnormalClosure.rawValue
+            {
+                throw WspulseError.serverClosed(
+                    code: StatusCode(rawValue: captured.code),
+                    reason: captured.reason
+                )
+            }
+            throw error
         }
     }
 
