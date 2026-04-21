@@ -10,7 +10,7 @@ Component tests use a `MockTransport` actor (zero network I/O) injected via
 - `BasicTests` (connect, send, receive, close)
 - `CallbackTests` (transport drop, disconnect, restore callbacks)
 - `LifecycleTests` (close during reconnect, idempotent close, dial rejection)
-- `MiscTests` (frame fidelity, ordering, query params, concurrent sends)
+- `MiscTests` (message fidelity, ordering, query params, concurrent sends)
 - `ReconnectTests` (auto-reconnect, retries exhausted, pong timeout)
 
 **Run:** `swift test --filter WspulseClientTests` (or `make test`)
@@ -33,9 +33,9 @@ Component tests use a `MockTransport` actor (zero network I/O) injected via
 
 | Test Name                                         | What It Covers                                   |
 | ------------------------------------------------- | ------------------------------------------------ |
-| `testRoundTripsAllFrameFields`                    | Full Frame field fidelity through codec          |
+| `testRoundTripsAllMessageFields`                  | Full Message field fidelity through codec        |
 | `testHandlesDialRejectionGracefully`              | `connect()` throws when dial fails               |
-| `testReceivesFramesInOrder`                       | Message ordering preservation                    |
+| `testReceivesMessagesInOrder`                     | Message ordering preservation                    |
 | `testConnectsWithQueryParams`                     | URL query parameters are passed through          |
 | `testOnDisconnectFiresExactlyOnceOnClose`         | User-initiated close fires exactly one callback  |
 | `testCloseIsIdempotent`                           | Multiple `close()` calls fire one callback       |

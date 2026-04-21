@@ -16,7 +16,7 @@ Works on **iOS 16+**, **macOS 13+**, **watchOS 9+**, and **tvOS 16+** via `URLSe
 ## Design Goals
 
 - Thin client: connect, send, receive, auto-reconnect
-- Matches server-side `Frame` wire format via JSON text frames
+- Matches server-side `Message` wire format via JSON text frames
 - Exponential backoff with configurable retries (equal jitter)
 - Transport drop vs. permanent disconnect callbacks
 - Swift Structured Concurrency (`actor`, `async/await`) with `Sendable` safety
@@ -63,8 +63,8 @@ import WspulseClient
 let client = WspulseClient(
     url: URL(string: "ws://localhost:8080/ws?room=r1&token=xyz")!,
     options: WspulseClientOptions(
-        onMessage: { frame in
-            print("[\(frame.event ?? "")] \(String(describing: frame.payload))")
+        onMessage: { message in
+            print("[\(message.event ?? "")] \(String(describing: message.payload))")
         },
         autoReconnect: AutoReconnectOptions(
             maxRetries: 5,
@@ -75,7 +75,7 @@ let client = WspulseClient(
 )
 
 try await client.connect()
-try await client.send(Frame(event: "msg", payload: .object(["text": .string("hello")])))
+try await client.send(Message(event: "msg", payload: .object(["text": .string("hello")])))
 
 // Wait until permanently disconnected
 for await _ in client.done { }
@@ -96,9 +96,9 @@ class ChatViewModel: ObservableObject {
         let client = WspulseClient(
             url: URL(string: "ws://localhost:8080/ws?room=chat")!,
             options: WspulseClientOptions(
-                onMessage: { [weak self] frame in
+                onMessage: { [weak self] message in
                     Task { @MainActor in
-                        if let text = frame.payload?.stringValue {
+                        if let text = message.payload?.stringValue {
                             self?.messages.append(text)
                         }
                     }
@@ -115,7 +115,7 @@ class ChatViewModel: ObservableObject {
     }
 
     func send(_ text: String) async throws {
-        try await client?.send(Frame(
+        try await client?.send(Message(
             event: "msg",
             payload: .object(["text": .string(text)])
         ))
@@ -129,9 +129,9 @@ class ChatViewModel: ObservableObject {
 
 ---
 
-## Frame Format
+## Message Format
 
-The default `JSONCodec` encodes frames as JSON text frames:
+The default `JSONCodec` encodes messages as JSON text frames:
 
 ```json
 {
@@ -140,21 +140,21 @@ The default `JSONCodec` encodes frames as JSON text frames:
 }
 ```
 
-The `event` field is the routing key on the server side. Set `frame.event` to match the handler registered with `r.On("chat.message", ...)` on the server. The `payload` field carries arbitrary data expressed as `AnyJSON`.
+The `event` field is the routing key on the server side. Set `message.event` to match the handler registered with `r.On("chat.message", ...)` on the server. The `payload` field carries arbitrary data expressed as `AnyJSON`.
 
 ```swift
-// Send a typed frame — server routes by "event"
-try await client.send(Frame(
+// Send a typed message — server routes by "event"
+try await client.send(Message(
     event: "chat.message",
     payload: .object(["text": .string("hello world")])
 ))
 
-// Receive typed frames in onMessage
+// Receive typed messages in onMessage
 WspulseClientOptions(
-    onMessage: { frame in
-        switch frame.event {
-        case "chat.message": handleMessage(frame)
-        case "chat.ack":     handleAck(frame)
+    onMessage: { message in
+        switch message.event {
+        case "chat.message": handleMessage(message)
+        case "chat.ack":     handleAck(message)
         default: break
         }
     }
@@ -165,9 +165,9 @@ To use a custom wire format, implement `WspulseCodec`:
 
 ```swift
 struct ProtobufCodec: WspulseCodec {
-    var frameType: FrameType { .binary }
-    func encode(_ frame: Frame) throws -> Data { /* serialize */ }
-    func decode(_ data: Data) throws -> Frame  { /* deserialize */ }
+    var wireType: WireType { .binary }
+    func encode(_ message: Message) throws -> Data { /* serialize */ }
+    func decode(_ data: Data) throws -> Message    { /* deserialize */ }
 }
 
 let client = WspulseClient(
@@ -186,14 +186,14 @@ let client = WspulseClient(
 | ----------------- | ------------------------------------------- | ------------------------------------------------- |
 | `init`            | `(url: URL, options: WspulseClientOptions)` | Create a client. Does not connect yet.            |
 | `connect()`       | `async throws`                              | Establish the WebSocket connection.               |
-| `send(_:)`        | `(Frame) async throws`                      | Enqueue a frame for delivery.                     |
+| `send(_:)`        | `(Message) throws`                          | Enqueue a message for delivery (actor-isolated).  |
 | `close()`         | `async`                                     | Permanently close. Idempotent.                    |
 | `done`            | `AsyncStream<Void>`                         | Yields once and finishes on permanent disconnect. |
 
-### `Frame`
+### `Message`
 
 ```swift
-public struct Frame: Codable, Sendable {
+public struct Message: Codable, Sendable {
     public var event: String?
     public var payload: AnyJSON?
 }
@@ -212,9 +212,9 @@ public struct Frame: Codable, Sendable {
 
 ```swift
 public protocol WspulseCodec: Sendable {
-    var frameType: FrameType { get }
-    func encode(_ frame: Frame) throws -> Data
-    func decode(_ data: Data) throws -> Frame
+    var wireType: WireType { get }
+    func encode(_ message: Message) throws -> Data
+    func decode(_ data: Data) throws -> Message
 }
 ```
 
@@ -228,11 +228,11 @@ Default: `JSONCodec` (JSON text frames).
 
 | Option            | Type                         | Default     | Description                                 |
 | ----------------- | ---------------------------- | ----------- | ------------------------------------------- |
-| `onMessage`       | `@Sendable (Frame) -> Void`  | no-op       | Called for every inbound frame.             |
+| `onMessage`       | `@Sendable (Message) -> Void` | no-op       | Called for every inbound message.           |
 | `onDisconnect`    | `@Sendable (Error?) -> Void` | no-op       | Called on permanent disconnect.             |
 | `onTransportRestore` | `@Sendable () -> Void`       | no-op       | Called after each successful reconnect.     |
 | `onTransportDrop` | `@Sendable (Error?) -> Void` | no-op       | Called on transport drop or clean `close()` (`nil` = clean). |
-| `sendBufferSize`  | `Int`                        | 256         | Max outbound frames buffered before `sendBufferFull` is thrown. Valid range: [1, 4096]. |
+| `sendBufferSize`  | `Int`                        | 256         | Max outbound messages buffered before `sendBufferFull` is thrown. Valid range: [1, 4096]. |
 | `autoReconnect`   | `AutoReconnectOptions?`      | `nil` (off) | Enable exponential backoff reconnect.       |
 | `writeWait`       | `Duration`                   | 10s         | Deadline for a single write operation.      |
 | `maxMessageSize`  | `Int`                        | 1 MiB       | Max inbound message size.                   |
@@ -276,7 +276,7 @@ let options = WspulseClientOptions(
 - **Transport drop callback** — `onTransportDrop` fires on every transport death (even when auto-reconnect follows) and on clean `close()` with `nil`. Exactly one invocation per transport lifecycle. Useful for metrics and logging.
 - **Permanent disconnect callback** — `onDisconnect` fires exactly once when the client is truly done (`close()` called, retries exhausted, or connection lost without auto-reconnect).
 - **Max message size** — Inbound messages exceeding `maxMessageSize` bytes drop the connection.
-- **Backpressure** — bounded send buffer (default 256 frames, configurable via `sendBufferSize`); throws `WspulseError.sendBufferFull` when full.
+- **Backpressure** — bounded send buffer (default 256 messages, configurable via `sendBufferSize`); throws `WspulseError.sendBufferFull` when full.
 - **Actor-isolated send** — `send()` enqueues only and returns immediately, safe to call from any `Task` without holding locks.
 - **`done` AsyncStream** — yields once then finishes on permanent disconnect. `for await _ in client.done {}` suspends until the client is truly closed.
 - **Idempotent close** — `close()` is safe to call multiple times concurrently.

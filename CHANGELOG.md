@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-21
+
+### Changed
+
+- **BREAKING**: `Frame` renamed to `Message` — aligns with upstream `wspulse/core` rename. The application-layer type is now `Message`; "frame" is reserved for the WebSocket protocol layer (RFC 6455).
+- **BREAKING**: `FrameType` enum renamed to `WireType`.
+- **BREAKING**: `WspulseCodec.frameType` property renamed to `wireType`.
+- **BREAKING**: `WspulseCodec.encode(_:)` and `decode(_:)` parameter/return type changed from `Frame` to `Message`.
+- **BREAKING**: `WspulseClient.send(_:)` parameter type changed from `Frame` to `Message`.
+- **BREAKING**: `WspulseClientOptions.onMessage` callback type changed from `(Frame) -> Void` to `(Message) -> Void`.
+- File renamed: `Frame.swift` to `Message.swift`.
+
 ## [0.5.1] - 2026-04-18
 
 ### Fixed
@@ -86,7 +98,7 @@
 ### Added
 
 - Project scaffold: SPM package, Makefile, CI/CD workflows, SwiftLint
-- `Frame` struct (`id`, `event`, `payload` — all optional, `Codable`, `Sendable`)
+- `Frame` struct (now `Message`) (`id`, `event`, `payload` — all optional, `Codable`, `Sendable`)
 - `AnyJSON` type-erased Codable JSON value
 - `WspulseCodec` protocol with `JSONCodec` default
 - `WspulseClientOptions` value type with all configuration
@@ -103,7 +115,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/wspulse/client-swift/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/wspulse/client-swift/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wspulse/client-swift/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/wspulse/client-swift/compare/v0.4.0...v0.4.1

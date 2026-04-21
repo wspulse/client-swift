@@ -147,13 +147,13 @@ actor ConnectionActor: TransportProtocol {
         }
     }
 
-    /// Send data over the WebSocket. Uses text or binary message based on frame type.
-    func send(_ data: Data, frameType: FrameType) async throws {
+    /// Send data over the WebSocket. Uses text or binary message based on wire type.
+    func send(_ data: Data, wireType: WireType) async throws {
         guard let task else {
             throw WspulseError.connectionClosed
         }
         let message: URLSessionWebSocketTask.Message
-        switch frameType {
+        switch wireType {
         case .text:
             guard let string = String(data: data, encoding: .utf8) else {
                 throw WspulseError.encodingFailed

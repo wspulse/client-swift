@@ -11,8 +11,8 @@ final class MiscTests: XCTestCase {
 
     private let codec = JSONCodec()
 
-    private func encode(_ frame: Frame) throws -> Data {
-        try codec.encode(frame)
+    private func encode(_ message: Message) throws -> Data {
+        try codec.encode(message)
     }
 
     private func waitUntil(
@@ -68,7 +68,7 @@ final class MiscTests: XCTestCase {
         )
         try await client.connect()
 
-        try await sendConcurrentFrames(
+        try await sendConcurrentMessages(
             client: client, senders: senders,
             msgsPerSender: msgsPerSender
         )
@@ -96,7 +96,7 @@ final class MiscTests: XCTestCase {
         await client.close()
     }
 
-    private func sendConcurrentFrames(
+    private func sendConcurrentMessages(
         client: WspulseClient,
         senders: Int,
         msgsPerSender: Int
@@ -106,7 +106,7 @@ final class MiscTests: XCTestCase {
                 grp.addTask {
                     for msgIdx in 0..<msgsPerSender {
                         try await client.send(
-                            Frame(
+                            Message(
                                 event: "concurrent",
                                 payload: .object([
                                     "s": .number(Double(senderIdx)),
@@ -120,11 +120,11 @@ final class MiscTests: XCTestCase {
         }
     }
 
-    private func assertPerSenderOrdering(_ frames: [Frame]) {
+    private func assertPerSenderOrdering(_ messages: [Message]) {
         var lastM = [Int: Int]()
-        for frame in frames {
+        for msg in messages {
             guard
-                let obj = frame.payload?.objectValue,
+                let obj = msg.payload?.objectValue,
                 let sVal = obj["s"]?.numberValue,
                 let mVal = obj["m"]?.numberValue
             else { continue }

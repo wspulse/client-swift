@@ -13,7 +13,7 @@ protocol TransportProtocol: Actor {
     func dial(url: URL, headers: [String: String]) async throws
 
     /// Send data over the WebSocket.
-    func send(_ data: Data, frameType: FrameType) async throws
+    func send(_ data: Data, wireType: WireType) async throws
 
     /// Receive the next message from the WebSocket.
     func receive() async throws -> Data
