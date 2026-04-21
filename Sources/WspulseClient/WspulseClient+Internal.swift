@@ -12,8 +12,8 @@ extension WspulseClient {
             while !Task.isCancelled {
                 do {
                     let data = try await conn.receive()
-                    if let frame = await self.decodeFrame(data) {
-                        await self.handleMessage(frame)
+                    if let msg = await self.decodeMessage(data) {
+                        await self.handleMessage(msg)
                     }
                 } catch {
                     if Task.isCancelled { return }
@@ -174,30 +174,30 @@ extension WspulseClient {
 
     // MARK: - Helpers
 
-    func decodeFrame(_ data: Data) -> Frame? {
+    func decodeMessage(_ data: Data) -> Message? {
         do {
             return try options.codec.decode(data)
         } catch {
-            options.logger.warning("wspulse/client: decode failed, frame dropped: \(error)")
+            options.logger.warning("wspulse/client: decode failed, message dropped: \(error)")
             return nil
         }
     }
 
-    func handleMessage(_ frame: Frame) {
-        options.onMessage?(frame)
+    func handleMessage(_ message: Message) {
+        options.onMessage?(message)
     }
 
     func drainBuffer() async {
         let writeWait = options.writeWait
         let conn = connection
-        let frameType = options.codec.frameType
+        let wireType = options.codec.wireType
         let slp = sleeper
         while !sendBuffer.isEmpty {
             guard let data = sendBuffer.peek() else { break }
             do {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     group.addTask {
-                        try await conn.send(data, frameType: frameType)
+                        try await conn.send(data, wireType: wireType)
                     }
                     group.addTask {
                         try await slp.sleep(for: writeWait)
@@ -212,10 +212,10 @@ extension WspulseClient {
             } catch is CancellationError {
                 return
             } catch let error as WspulseError where error == .encodingFailed {
-                // Encoding error is not a transport issue — drop the frame
+                // Encoding error is not a transport issue — drop the message
                 // and continue draining. Reconnecting would fail identically.
                 sendBuffer.dequeue()
-                options.logger.warning("wspulse/client: frame dropped (encoding failed)")
+                options.logger.warning("wspulse/client: message dropped (encoding failed)")
             } catch {
                 if closed { return }
                 options.logger.warning("wspulse/client: write failed: \(error)")

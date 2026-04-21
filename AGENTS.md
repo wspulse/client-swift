@@ -18,9 +18,9 @@ making any changes.
   loop Tasks
 - `Sources/WspulseClient/WspulseClientOptions.swift` — `WspulseClientOptions`
   value type with all configuration
-- `Sources/WspulseClient/Codec.swift` — `WspulseCodec` protocol, `FrameType`
+- `Sources/WspulseClient/Codec.swift` — `WspulseCodec` protocol, `WireType`
   enum, `JSONCodec` default
-- `Sources/WspulseClient/Frame.swift` — `struct Frame: Codable, Sendable`
+- `Sources/WspulseClient/Message.swift` — `struct Message: Codable, Sendable`
 - `Sources/WspulseClient/AnyJSON.swift` — type-erased `Codable` JSON value
 - `Sources/WspulseClient/Errors.swift` — `WspulseError` enum
 - `Sources/WspulseClient/Backoff.swift` — `backoff(attempt:base:max:)` with

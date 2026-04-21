@@ -45,8 +45,8 @@ public struct AutoReconnectOptions: Sendable {
 
 /// All configuration options for ``WspulseClient``.
 public struct WspulseClientOptions: Sendable {
-    /// Called for every inbound frame decoded by the codec.
-    public var onMessage: (@Sendable (Frame) -> Void)?
+    /// Called for every inbound message decoded by the codec.
+    public var onMessage: (@Sendable (Message) -> Void)?
 
     /// Called on permanent disconnect. `nil` error = clean close.
     public var onDisconnect: (@Sendable (Error?) -> Void)?
@@ -74,17 +74,17 @@ public struct WspulseClientOptions: Sendable {
     /// Extra HTTP headers sent during WebSocket upgrade.
     public var dialHeaders: [String: String]
 
-    /// Capacity of the outbound frame buffer. Range: [1, 4096]. Default: 256.
+    /// Capacity of the outbound message buffer. Range: [1, 4096]. Default: 256.
     public var sendBufferSize: Int
 
-    /// Wire-format codec for encoding/decoding Frames.
+    /// Wire-format codec for encoding/decoding Messages.
     public var codec: any WspulseCodec
 
     /// Logger for internal diagnostics. Enabled by default.
     public var logger: os.Logger
 
     public init(
-        onMessage: (@Sendable (Frame) -> Void)? = nil,
+        onMessage: (@Sendable (Message) -> Void)? = nil,
         onDisconnect: (@Sendable (Error?) -> Void)? = nil,
         onTransportRestore: (@Sendable () -> Void)? = nil,
         onTransportDrop: (@Sendable (Error?) -> Void)? = nil,

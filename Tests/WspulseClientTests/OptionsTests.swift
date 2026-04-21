@@ -15,7 +15,7 @@ final class OptionsTests: XCTestCase {
         XCTAssertEqual(opts.maxMessageSize, 1_048_576)
         XCTAssertEqual(opts.sendBufferSize, 256)
         XCTAssertTrue(opts.dialHeaders.isEmpty)
-        XCTAssertEqual(opts.codec.frameType, .text)
+        XCTAssertEqual(opts.codec.wireType, .text)
     }
 
     func testDefaultAutoReconnectValues() {
@@ -91,11 +91,11 @@ final class OptionsTests: XCTestCase {
 
     func testOnMessageCallbackIsInvoked() {
         let expectation = XCTestExpectation(description: "onMessage called")
-        let opts = WspulseClientOptions(onMessage: { frame in
-            XCTAssertEqual(frame.event, "test")
+        let opts = WspulseClientOptions(onMessage: { message in
+            XCTAssertEqual(message.event, "test")
             expectation.fulfill()
         })
-        opts.onMessage?(Frame(event: "test"))
+        opts.onMessage?(Message(event: "test"))
         wait(for: [expectation], timeout: 1)
     }
 

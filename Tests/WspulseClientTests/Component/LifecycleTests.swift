@@ -59,7 +59,7 @@ final class LifecycleTests: XCTestCase {
         await client.close()
 
         do {
-            try await client.send(Frame(event: "msg"))
+            try await client.send(Message(event: "msg"))
             XCTFail("Expected WspulseError.connectionClosed")
         } catch let err as WspulseError {
             XCTAssertEqual(err, .connectionClosed)
@@ -269,7 +269,7 @@ final class LifecycleTests: XCTestCase {
         await transport.setSendError(
             WspulseError.connectionLost
         )
-        try await client.send(Frame(event: "trigger"))
+        try await client.send(Message(event: "trigger"))
 
         // If the deadlock exists, done will never complete and
         // this test will time out.

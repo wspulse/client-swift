@@ -11,8 +11,8 @@ final class ReconnectTests: XCTestCase {
 
     private let codec = JSONCodec()
 
-    private func encode(_ frame: Frame) throws -> Data {
-        try codec.encode(frame)
+    private func encode(_ message: Message) throws -> Data {
+        try codec.encode(message)
     }
 
     private func waitUntil(
@@ -64,7 +64,7 @@ final class ReconnectTests: XCTestCase {
         )
         try await client.connect()
 
-        let beforeData = try encode(Frame(event: "before"))
+        let beforeData = try encode(Message(event: "before"))
         await transport1.injectData(beforeData)
         try await waitUntil { state.receivedCount >= 1 }
 
@@ -81,7 +81,7 @@ final class ReconnectTests: XCTestCase {
             state.transportRestoreCount >= 1
         }
 
-        let afterData = try encode(Frame(event: "after"))
+        let afterData = try encode(Message(event: "after"))
         await transport2.injectData(afterData)
 
         try await waitUntil { state.receivedCount >= 2 }
