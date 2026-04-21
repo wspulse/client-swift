@@ -241,8 +241,8 @@ final class ClientUnitTests: XCTestCase {
         let client = WspulseClient(
             url: URL(string: "ws://127.0.0.1:0")!
         )
-        let frame = Message(event: "test")
-        let data = try JSONEncoder().encode(frame)
+        let message = Message(event: "test")
+        let data = try JSONEncoder().encode(message)
         let result = await client.decodeMessage(data)
         XCTAssertEqual(result?.event, "test")
     }
