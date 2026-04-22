@@ -42,8 +42,12 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
         if shouldCallNow { handler() }
     }
 
-    /// Server close frame details captured from `didCloseWith:`, or nil if the
-    /// connection dropped without a close frame (abnormal closure).
+    /// Close details reported by `didCloseWith:`, if any.
+    ///
+    /// This value reflects the `URLSessionWebSocketTask` close code and reason
+    /// reported by Foundation and may include synthesized or pseudo close codes
+    /// for abnormal termination, so a non-nil value does not necessarily mean a
+    /// wire close frame was received from the peer.
     var serverClose: (code: UInt16, reason: String)? {
         lock.withLock { _serverClose }
     }
