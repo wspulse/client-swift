@@ -195,4 +195,38 @@ final class CallbackTests: XCTestCase {
         try await waitUntil { state.disconnectCalled }
         for await _ in client.done {}
     }
+
+    // MARK: - Pseudo close code does not produce serverClosed error
+
+    func testPseudoCloseCodeDoesNotDeliverServerClosedError() async throws {
+        // A pseudo-code such as 1006 (abnormal closure) means no real close
+        // frame arrived. The client must rethrow the underlying error as-is
+        // (i.e. not wrap it in .serverClosed).
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        let underlyingError = URLError(.networkConnectionLost)
+        await transport.injectError(underlyingError)
+
+        try await waitUntil { state.transportDropCalled }
+
+        let err = state.firstTransportDropErr.flatMap { $0 }
+        XCTAssertFalse(
+            err is WspulseError,
+            "Expected underlying URLError, not WspulseError.serverClosed; got \(String(describing: err))"
+        )
+
+        try await waitUntil { state.disconnectCalled }
+        for await _ in client.done {}
+    }
 }

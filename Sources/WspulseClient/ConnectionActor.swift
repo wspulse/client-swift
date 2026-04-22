@@ -112,6 +112,15 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
 actor ConnectionActor: TransportProtocol {
+    /// RFC 6455 §7.4.1 pseudo-codes that must not appear on the wire.
+    /// They are synthesised by the implementation and do not represent a
+    /// real server-sent close frame.
+    private static let pseudoCloseCodes: Set<UInt16> = [
+        StatusCode.noStatusReceived.rawValue,
+        StatusCode.abnormalClosure.rawValue,
+        StatusCode.tlsHandshake.rawValue,
+    ]
+
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
     private var connectionDelegate: ConnectionDelegate?
@@ -214,13 +223,8 @@ actor ConnectionActor: TransportProtocol {
             //   1006 abnormalClosure  — TCP drop without a close handshake
             //   1015 tlsHandshake     — TLS failure (URLSession-synthesized)
             // Any of these means no real server close frame was received.
-            let pseudoCodes: Set<UInt16> = [
-                StatusCode.noStatusReceived.rawValue,
-                StatusCode.abnormalClosure.rawValue,
-                StatusCode.tlsHandshake.rawValue,
-            ]
             if let captured = connectionDelegate?.serverClose,
-                !pseudoCodes.contains(captured.code)
+                !ConnectionActor.pseudoCloseCodes.contains(captured.code)
             {
                 throw WspulseError.serverClosed(
                     code: StatusCode(rawValue: captured.code),
