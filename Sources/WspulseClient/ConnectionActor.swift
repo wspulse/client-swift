@@ -113,7 +113,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
 actor ConnectionActor: TransportProtocol {
     /// RFC 6455 §7.4.1 pseudo-codes that must not appear on the wire.
-    /// They are synthesised by the implementation and do not represent a
+    /// They are synthesized by the implementation and do not represent a
     /// real server-sent close frame.
     private static let pseudoCloseCodes: Set<UInt16> = [
         StatusCode.noStatusReceived.rawValue,

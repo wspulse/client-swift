@@ -159,9 +159,9 @@ final class CallbackTests: XCTestCase {
         )
     }
 
-    // MARK: - Server close frame delivers serverClosed error
+    // MARK: - serverClosed error injected via MockTransport is delivered to onTransportDrop
 
-    func testServerCloseFrameDeliversServerClosedError() async throws {
+    func testServerClosedErrorDeliveredToOnTransportDrop() async throws {
         let state = TestState()
         let transport = MockTransport()
 

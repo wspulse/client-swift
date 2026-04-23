@@ -35,6 +35,7 @@ final class ErrorTests: XCTestCase {
         let allCases: [WspulseError] = [
             .connectionClosed, .sendBufferFull, .retriesExhausted,
             .connectionLost, .encodingFailed,
+            .serverClosed(code: .goingAway, reason: "bye"),
         ]
         for error in allCases {
             XCTAssertTrue(
@@ -50,6 +51,7 @@ final class ErrorTests: XCTestCase {
         let allCases: [WspulseError] = [
             .connectionClosed, .sendBufferFull, .retriesExhausted,
             .connectionLost, .encodingFailed,
+            .serverClosed(code: .goingAway, reason: "bye"),
         ]
         for error in allCases {
             XCTAssertEqual(error.errorDescription, error.description)
