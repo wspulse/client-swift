@@ -1,5 +1,3 @@
-import Foundation
-
 /// WebSocket close status code (RFC 6455 §7.4).
 ///
 /// Wraps the raw 16-bit integer close code. Callers use the static constants

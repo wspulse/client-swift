@@ -196,12 +196,11 @@ final class CallbackTests: XCTestCase {
         for await _ in client.done {}
     }
 
-    // MARK: - Pseudo close code does not produce serverClosed error
+    // MARK: - Non-WspulseError transport error passes through onTransportDrop unwrapped
 
-    func testPseudoCloseCodeDoesNotDeliverServerClosedError() async throws {
-        // A pseudo-code such as 1006 (abnormal closure) means no real close
-        // frame arrived. The client must rethrow the underlying error as-is
-        // (i.e. not wrap it in .serverClosed).
+    func testNonWspulseErrorPassesThroughTransportDropUnwrapped() async throws {
+        // A raw transport error (e.g. URLError) injected via MockTransport must
+        // reach onTransportDrop as-is — not wrapped in WspulseError.serverClosed.
         let state = TestState()
         let transport = MockTransport()
 
