@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-02
+
 ### Added
 
 - `WspulseError.serverClosed(code:reason:)` — passed to `WspulseClientOptions.onTransportDrop` when the server sends a WebSocket close frame. Carries the code and reason read directly from the close frame.
@@ -115,7 +117,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/wspulse/client-swift/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/wspulse/client-swift/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/wspulse/client-swift/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wspulse/client-swift/compare/v0.4.1...v0.5.0
