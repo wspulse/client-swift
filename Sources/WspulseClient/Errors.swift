@@ -18,9 +18,9 @@ public enum WspulseError: Error, Sendable, Equatable {
     /// Codec produced non-UTF8 data for a text-mode WebSocket frame.
     case encodingFailed
 
-    /// Server sent a WebSocket close frame. Carries the code and reason
-    /// read directly from the frame so callers can distinguish disconnect
-    /// causes (e.g. ``StatusCode/goingAway`` vs ``StatusCode/policyViolation``).
+    /// Server sent a WebSocket close frame. Carries the close code and reason
+    /// as reported by Foundation. When the close frame has no status body,
+    /// ``StatusCode/noStatusReceived`` (1005) is synthesized per RFC 6455 §7.1.5.
     ///
     /// Delivered to ``WspulseClientOptions/onTransportDrop`` when a close
     /// frame is received from the server.

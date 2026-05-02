@@ -6,7 +6,7 @@
 
 ### Added
 
-- `WspulseError.serverClosed(code:reason:)` — passed to `WspulseClientOptions.onTransportDrop` when the server sends a WebSocket close frame. Carries the code and reason read directly from the close frame.
+- **BREAKING**: `WspulseError.serverClosed(code:reason:)` — new case added to the public enum; passed to `WspulseClientOptions.onTransportDrop` when the server sends a WebSocket close frame. Carries the close code and reason as reported by Foundation (1005 `noStatusReceived` is synthesized when the close frame has no status body). See [wspulse/.github#37](https://github.com/wspulse/.github/issues/37).
 - `StatusCode` — `RawRepresentable` struct with `RawValue == UInt16`, exposing RFC 6455 §7.4 close code constants (`normalClosure`, `goingAway`, etc.). Custom codes in the `4000`–`4999` private-use range are valid. See [wspulse/.github#37](https://github.com/wspulse/.github/issues/37).
 
 ## [0.6.0] - 2026-04-21
