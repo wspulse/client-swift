@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-02
+
+### Added
+
+- **BREAKING**: `WspulseError.serverClosed(code:reason:)` — new case added to the public enum; passed to `WspulseClientOptions.onTransportDrop` when the server sends a WebSocket close frame. Carries the close code and reason as reported by Foundation (1005 `noStatusReceived` is synthesized when the close frame has no status body). See [wspulse/.github#37](https://github.com/wspulse/.github/issues/37).
+- `StatusCode` — `RawRepresentable` struct with `RawValue == UInt16`, exposing RFC 6455 §7.4 close code constants (`normalClosure`, `goingAway`, etc.). Custom codes in the `4000`–`4999` private-use range are valid. See [wspulse/.github#37](https://github.com/wspulse/.github/issues/37).
+
 ## [0.6.0] - 2026-04-21
 
 ### Changed
@@ -27,13 +34,11 @@
 - **BREAKING**: `HeartbeatOptions` and `heartbeat` option — client-side ping is removed;
   dead-connection detection is now handled exclusively by the Hub's server-side heartbeat.
 
-
 ## [0.4.1] - 2026-04-09
 
 ### Changed
 
 - Internal send buffer replaced with `RingBuffer<Data>` — O(1) dequeue instead of O(n) `Array.removeFirst()`. No API or behaviour changes.
-
 
 ## [0.4.0] - 2026-04-06
 
@@ -58,7 +63,6 @@
 
 - **BREAKING**: `Frame.id` field removed — transport layer does not use it. Applications needing message IDs should use payload.
 
-
 ## [0.3.0] - 2026-03-24
 
 ### Added
@@ -68,7 +72,6 @@
 ### Removed
 
 - `onReconnect` callback option (replaced by `onTransportRestore`) (**breaking**)
-
 
 ## [0.2.0] - 2026-03-22
 
@@ -92,7 +95,6 @@
   send-after-close-with-code, send buffer initial state.
 - DocC catalog and SPI configuration.
 
-
 ## [0.1.0] - 2026-03-22
 
 ### Added
@@ -115,7 +117,8 @@
 - 99 unit tests + 16 integration tests (9 scenarios + 7 additional)
 - README with quick-start, SwiftUI example, API reference
 
-[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/wspulse/client-swift/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/wspulse/client-swift/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/wspulse/client-swift/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/wspulse/client-swift/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wspulse/client-swift/compare/v0.4.1...v0.5.0

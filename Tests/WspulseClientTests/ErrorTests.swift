@@ -35,6 +35,7 @@ final class ErrorTests: XCTestCase {
         let allCases: [WspulseError] = [
             .connectionClosed, .sendBufferFull, .retriesExhausted,
             .connectionLost, .encodingFailed,
+            .serverClosed(code: .goingAway, reason: "bye"),
         ]
         for error in allCases {
             XCTAssertTrue(
@@ -50,6 +51,7 @@ final class ErrorTests: XCTestCase {
         let allCases: [WspulseError] = [
             .connectionClosed, .sendBufferFull, .retriesExhausted,
             .connectionLost, .encodingFailed,
+            .serverClosed(code: .goingAway, reason: "bye"),
         ]
         for error in allCases {
             XCTAssertEqual(error.errorDescription, error.description)
@@ -88,9 +90,40 @@ final class ErrorTests: XCTestCase {
         let allCases: [WspulseError] = [
             .connectionClosed, .sendBufferFull, .retriesExhausted,
             .connectionLost, .encodingFailed,
+            .serverClosed(code: .goingAway, reason: "bye"),
         ]
         for error in allCases {
             XCTAssertFalse(error.localizedDescription.isEmpty)
         }
+    }
+
+    // MARK: - serverClosed
+
+    func testServerClosedDescriptionIncludesCodeAndReason() {
+        let error = WspulseError.serverClosed(code: StatusCode.goingAway, reason: "bye")
+        XCTAssertTrue(error.description.hasPrefix("wspulse:"))
+        XCTAssertTrue(error.description.contains("1001"))
+        XCTAssertTrue(error.description.contains("bye"))
+    }
+
+    func testServerClosedDescriptionOmitsEmptyReason() {
+        let error = WspulseError.serverClosed(code: StatusCode.normalClosure, reason: "")
+        XCTAssertTrue(error.description.hasPrefix("wspulse:"))
+        XCTAssertTrue(error.description.contains("1000"))
+        XCTAssertFalse(error.description.contains("reason="))
+    }
+
+    func testServerClosedEquality() {
+        let first = WspulseError.serverClosed(code: StatusCode.goingAway, reason: "x")
+        let second = WspulseError.serverClosed(code: StatusCode.goingAway, reason: "x")
+        let third = WspulseError.serverClosed(code: StatusCode.goingAway, reason: "y")
+        XCTAssertEqual(first, second)
+        XCTAssertNotEqual(first, third)
+    }
+
+    func testStatusCodePrivateUseRange() {
+        // RFC 6455 §7.4.2 reserves 4000-4999 for application use.
+        let code = StatusCode(rawValue: 4200)
+        XCTAssertEqual(code.rawValue, 4200)
     }
 }
