@@ -158,4 +158,74 @@ final class CallbackTests: XCTestCase {
             "onTransportDrop(nil) must fire before onDisconnect(nil)"
         )
     }
+
+    // MARK: - serverClosed error injected via MockTransport is delivered to onTransportDrop
+
+    func testServerClosedErrorDeliveredToOnTransportDrop() async throws {
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        await transport.injectError(
+            WspulseError.serverClosed(code: StatusCode.goingAway, reason: "server shutting down")
+        )
+
+        try await waitUntil { state.transportDropCalled }
+
+        let err = state.firstTransportDropErr.flatMap { $0 }
+        guard case .serverClosed(let code, let reason) = err as? WspulseError else {
+            XCTFail("expected .serverClosed, got \(String(describing: err))")
+            return
+        }
+        XCTAssertEqual(code, StatusCode.goingAway)
+        XCTAssertEqual(reason, "server shutting down")
+
+        // With autoReconnect = nil, the injected error must drive the client
+        // to disconnect. Wait for that and drain `client.done` so the test
+        // does not leave background tasks running past its end.
+        try await waitUntil { state.disconnectCalled }
+        for await _ in client.done {}
+    }
+
+    // MARK: - Non-WspulseError transport error passes through onTransportDrop unwrapped
+
+    func testNonWspulseErrorPassesThroughTransportDropUnwrapped() async throws {
+        // A raw transport error (e.g. URLError) injected via MockTransport must
+        // reach onTransportDrop as-is — not wrapped in WspulseError.serverClosed.
+        let state = TestState()
+        let transport = MockTransport()
+
+        let client = WspulseClient(
+            url: URL(string: "ws://127.0.0.1:9999")!,
+            options: WspulseClientOptions(
+                onDisconnect: { state.addDisconnect($0) },
+                onTransportDrop: { state.addTransportDrop($0) }
+            ),
+            transport: transport
+        )
+        try await client.connect()
+
+        let underlyingError = URLError(.networkConnectionLost)
+        await transport.injectError(underlyingError)
+
+        try await waitUntil { state.transportDropCalled }
+
+        let err = state.firstTransportDropErr.flatMap { $0 }
+        XCTAssertFalse(
+            err is WspulseError,
+            "Expected underlying URLError, not WspulseError.serverClosed; got \(String(describing: err))"
+        )
+
+        try await waitUntil { state.disconnectCalled }
+        for await _ in client.done {}
+    }
 }

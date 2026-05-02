@@ -19,6 +19,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
     private var onFail: ((Error) -> Void)?
     private var onClose: (() -> Void)?
     private var closeFired = false
+    private var _serverClose: (code: UInt16, reason: String)?
 
     func configure(onOpen: @escaping () -> Void, onFail: @escaping (Error) -> Void) {
         lock.withLock {
@@ -39,6 +40,16 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
             return false
         }
         if shouldCallNow { handler() }
+    }
+
+    /// Close details reported by `didCloseWith:`, if any.
+    ///
+    /// This value reflects the `URLSessionWebSocketTask` close code and reason
+    /// reported by Foundation and may include synthesized or pseudo close codes
+    /// for abnormal termination, so a non-nil value does not necessarily mean a
+    /// wire close frame was received from the peer.
+    var serverClose: (code: UInt16, reason: String)? {
+        lock.withLock { _serverClose }
     }
 
     func urlSession(
@@ -67,6 +78,15 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
+        let reasonString: String
+        if let reason, let decoded = String(data: reason, encoding: .utf8) {
+            reasonString = decoded
+        } else {
+            reasonString = ""
+        }
+        lock.withLock {
+            _serverClose = (code: UInt16(closeCode.rawValue), reason: reasonString)
+        }
         fireOnClose()
     }
 
@@ -92,6 +112,15 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 
 /// Internal actor wrapping `URLSessionWebSocketTask` for connection management.
 actor ConnectionActor: TransportProtocol {
+    /// RFC 6455 §7.4.1 pseudo-codes that must not appear on the wire.
+    /// They are synthesized by the implementation and do not represent a
+    /// real server-sent close frame.
+    private static let pseudoCloseCodes: Set<UInt16> = [
+        StatusCode.noStatusReceived.rawValue,
+        StatusCode.abnormalClosure.rawValue,
+        StatusCode.tlsHandshake.rawValue,
+    ]
+
     private var session: URLSession?
     private var task: URLSessionWebSocketTask?
     private var connectionDelegate: ConnectionDelegate?
@@ -170,17 +199,36 @@ actor ConnectionActor: TransportProtocol {
         guard let task else {
             throw WspulseError.connectionClosed
         }
-        let message = try await task.receive()
-        switch message {
-        case .string(let text):
-            guard let data = text.data(using: .utf8) else {
+        do {
+            let message = try await task.receive()
+            switch message {
+            case .string(let text):
+                return Data(text.utf8)
+            case .data(let data):
+                return data
+            @unknown default:
                 throw WspulseError.connectionClosed
             }
-            return data
-        case .data(let data):
-            return data
-        @unknown default:
-            throw WspulseError.connectionClosed
+        } catch {
+            // The delegate's didCloseWith: fires before task.receive() throws
+            // (the close handler cancels the task after capturing the frame).
+            // If we captured a real server close frame, surface it as
+            // .serverClosed so onTransportDrop can distinguish the cause.
+            // RFC 6455 §7.4.1 defines three pseudo-codes that must NOT appear
+            // on the wire — they are synthesized by the implementation:
+            //   1005 noStatusReceived — close frame with no status body
+            //   1006 abnormalClosure  — TCP drop without a close handshake
+            //   1015 tlsHandshake     — TLS failure (URLSession-synthesized)
+            // Any of these means no real server close frame was received.
+            if let captured = connectionDelegate?.serverClose,
+                !ConnectionActor.pseudoCloseCodes.contains(captured.code)
+            {
+                throw WspulseError.serverClosed(
+                    code: StatusCode(rawValue: captured.code),
+                    reason: captured.reason
+                )
+            }
+            throw error
         }
     }
 
