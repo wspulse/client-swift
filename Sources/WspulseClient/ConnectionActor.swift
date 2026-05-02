@@ -78,6 +78,7 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
+        // swiftlint:disable:next optional_data_string_conversion
         let reasonString = reason.map { String(decoding: $0, as: UTF8.self) } ?? ""
         lock.withLock {
             _serverClose = (code: UInt16(exactly: closeCode.rawValue) ?? UInt16.max, reason: reasonString)

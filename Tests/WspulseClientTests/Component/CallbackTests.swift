@@ -220,10 +220,9 @@ final class CallbackTests: XCTestCase {
         try await waitUntil { state.transportDropCalled }
 
         let err = state.firstTransportDropErr.flatMap { $0 }
-        XCTAssertFalse(
-            err is WspulseError,
-            "Expected underlying URLError, not WspulseError.serverClosed; got \(String(describing: err))"
-        )
+        XCTAssertNotNil(err, "Expected a URLError to be delivered, got nil")
+        let urlError = try XCTUnwrap(err as? URLError, "Expected URLError, got \(String(describing: err))")
+        XCTAssertEqual(urlError.code, .networkConnectionLost)
 
         try await waitUntil { state.disconnectCalled }
         for await _ in client.done {}
