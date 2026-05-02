@@ -114,9 +114,13 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
 actor ConnectionActor: TransportProtocol {
     /// RFC 6455 §7.4.1 pseudo-codes that must not appear on the wire.
     /// They are synthesized by the implementation and do not represent a
-    /// real server-sent close frame.
+    /// real server-sent close frame:
+    ///   1006 abnormalClosure — TCP drop without any close handshake
+    ///   1015 tlsHandshake   — TLS failure (URLSession-synthesized)
+    /// Note: 1005 noStatusReceived is NOT included here — it means a close
+    /// frame was received but without a status body, which is a real
+    /// server-initiated close and must surface as .serverClosed.
     private static let pseudoCloseCodes: Set<UInt16> = [
-        StatusCode.noStatusReceived.rawValue,
         StatusCode.abnormalClosure.rawValue,
         StatusCode.tlsHandshake.rawValue,
     ]
@@ -214,12 +218,12 @@ actor ConnectionActor: TransportProtocol {
             // (the close handler cancels the task after capturing the frame).
             // If we captured a real server close frame, surface it as
             // .serverClosed so onTransportDrop can distinguish the cause.
-            // RFC 6455 §7.4.1 defines three pseudo-codes that must NOT appear
-            // on the wire — they are synthesized by the implementation:
-            //   1005 noStatusReceived — close frame with no status body
+            // RFC 6455 §7.4.1 defines two pseudo-codes synthesized when no
+            // close frame was received at all:
             //   1006 abnormalClosure  — TCP drop without a close handshake
             //   1015 tlsHandshake     — TLS failure (URLSession-synthesized)
-            // Any of these means no real server close frame was received.
+            // 1005 noStatusReceived means a close frame WAS received but
+            // contained no status body — still a real server-initiated close.
             if let captured = connectionDelegate?.serverClose,
                 !ConnectionActor.pseudoCloseCodes.contains(captured.code)
             {
