@@ -203,10 +203,7 @@ actor ConnectionActor: TransportProtocol {
             let message = try await task.receive()
             switch message {
             case .string(let text):
-                guard let data = text.data(using: .utf8) else {
-                    throw WspulseError.connectionClosed
-                }
-                return data
+                return Data(text.utf8)
             case .data(let data):
                 return data
             @unknown default:
