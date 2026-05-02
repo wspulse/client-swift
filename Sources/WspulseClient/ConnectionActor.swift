@@ -78,14 +78,9 @@ private final class ConnectionDelegate: NSObject, URLSessionWebSocketDelegate,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
-        let reasonString: String
-        if let reason, let decoded = String(data: reason, encoding: .utf8) {
-            reasonString = decoded
-        } else {
-            reasonString = ""
-        }
+        let reasonString = reason.map { String(decoding: $0, as: UTF8.self) } ?? ""
         lock.withLock {
-            _serverClose = (code: UInt16(closeCode.rawValue), reason: reasonString)
+            _serverClose = (code: UInt16(exactly: closeCode.rawValue) ?? UInt16.max, reason: reasonString)
         }
         fireOnClose()
     }
